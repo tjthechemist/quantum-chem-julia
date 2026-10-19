@@ -120,6 +120,8 @@ H    1.2405   -2.1486    0.0000
 
         @test isapprox(res.orbital_energies_m[1], 2.0, atol=1e-2)
         @test isapprox(res.delocalization_energy_beta, 2.0, atol=1e-2)
+        unified_res = calculate(mol, :huckel)
+        @test unified_res.orbital_energies_ev ≈ res.orbital_energies_ev
     end
 
     @testset "7. CNDO/2 and AM1 / PM3 NDDO SCF" begin
@@ -214,14 +216,26 @@ H  0.0  0.0  0.7414
         # Gas-phase
         res_hf = calculate(mol, :hf)
         @test res_hf.total_energy_hartree < -1.0
+        @test res_hf.orbital_energies_ev ≈ res_hf.raw_result.mo_energies_hartree .* 27.211386245988
         @test res_hf.solvation === nothing
         @test res_hf.total_energy_solv_hartree == res_hf.total_energy_hartree
 
         res_dft = calculate(mol, :b3lyp)
         @test res_dft.total_energy_hartree < -1.0
+        @test res_dft.orbital_energies_ev ≈ res_dft.raw_result.mo_energies_hartree .* 27.211386245988
+
+        res_am1 = calculate(mol, :am1)
+        @test res_am1.orbital_energies_ev ≈ res_am1.raw_result.mo_energies_ev
+
+        res_eht = calculate(mol, :eht)
+        @test res_eht.orbital_energies_ev ≈ res_eht.raw_result.mo_energies_ev
+
+        res_cndo2 = calculate(mol, :cndo2)
+        @test res_cndo2.orbital_energies_ev ≈ res_cndo2.raw_result.mo_energies
 
         res_mp2 = calculate(mol, :mp2)
         @test res_mp2.total_energy_hartree < res_hf.total_energy_hartree
+        @test res_mp2.orbital_energies_ev ≈ res_hf.orbital_energies_ev
 
         res_uff = mktempdir() do output_dir
             output_path = joinpath(output_dir, "h2-report.custom")
@@ -235,6 +249,13 @@ H  0.0  0.0  0.7414
             result
         end
         @test isfinite(res_uff.total_energy_kcal)
+        @test res_uff.orbital_energies_ev === nothing
+        hf_report = format_output(res_hf)
+        @test occursin("orbital_energies_ev:", hf_report)
+        @test occursin("MO #1:", hf_report)
+        @test occursin("eV", hf_report)
+        orbital_report = format_output((orbital_energies_ev=collect(1.0:13.0),))
+        @test occursin("MO #13: 13 eV", orbital_report)
         @test occursin("e_bond", format_output(res_uff.raw_result))
 
         # Solvated HF/water: ΔG_solv should shift the total

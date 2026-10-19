@@ -49,6 +49,7 @@ Fields:
 - `total_energy_solv_ev`      : Gas-phase + ΔG_solv in eV  (equals gas-phase when vacuum)
 - `total_energy_solv_hartree` : Gas-phase + ΔG_solv in Hartree
 - `total_energy_solv_kcal`    : Gas-phase + ΔG_solv in kcal/mol
+- `orbital_energies_ev`      : Molecular orbital energies in eV, or `nothing` when unavailable
 - `raw_result`                : Full method-specific result object
 """
 struct CalculationResult
@@ -63,6 +64,8 @@ struct CalculationResult
     total_energy_solv_ev::Float64
     total_energy_solv_hartree::Float64
     total_energy_solv_kcal::Float64
+    # Molecular orbital energies, normalized to eV across methods.
+    orbital_energies_ev::Union{Nothing, Vector{Float64}}
     # Raw method-specific result
     raw_result::Any
 end
@@ -72,6 +75,25 @@ const EV_TO_KCAL     = 23.060548
 const KCAL_TO_EV     = 1.0 / EV_TO_KCAL
 const KCAL_TO_HARTREE = KCAL_TO_EV / HARTREE_TO_EV
 
+function _orbital_energies_ev(raw)::Union{Nothing, Vector{Float64}}
+    if hasproperty(raw, :orbital_energies_ev)
+        return Float64.(raw.orbital_energies_ev)
+    elseif hasproperty(raw, :mo_energies_ev)
+        return Float64.(raw.mo_energies_ev)
+    elseif hasproperty(raw, :mo_energies_hartree)
+        return Float64.(raw.mo_energies_hartree) .* HARTREE_TO_EV
+    elseif hasproperty(raw, :mo_energies)
+        unit = raw.energy_unit
+        if unit == "eV"
+            return Float64.(raw.mo_energies)
+        elseif unit == "Hartree"
+            return Float64.(raw.mo_energies) .* HARTREE_TO_EV
+        end
+        throw(ArgumentError("Unsupported molecular orbital energy unit: $unit"))
+    end
+    return nothing
+end
+
 # ---------------------------------------------------------------------------
 # Internal helper: apply solvation correction and build CalculationResult
 # ---------------------------------------------------------------------------
@@ -79,12 +101,14 @@ function _make_result(method::Symbol,
                       e_ev::Float64, e_ha::Float64, e_kcal::Float64,
                       mol::Molecule, solvent::Symbol,
                       charges::Vector{Float64},
-                      raw)::CalculationResult
+                      raw;
+                      orbital_energies_ev::Union{Nothing, Vector{Float64}}=_orbital_energies_ev(raw))::CalculationResult
     if solvent == :vacuum
         return CalculationResult(method,
                                  e_ev, e_ha, e_kcal,
                                  nothing,
                                  e_ev, e_ha, e_kcal,
+                                 orbital_energies_ev,
                                  raw)
     end
 
@@ -99,6 +123,7 @@ function _make_result(method::Symbol,
                              e_ev  + dg_ev,
                              e_ha  + dg_ha,
                              e_kcal + dg_kcal,
+                             orbital_energies_ev,
                              raw)
 end
 
@@ -265,7 +290,8 @@ function _calculate(mol::Molecule, method::Symbol;
         e_ev    = e_ha * HARTREE_TO_EV
         charges = _charges(mol, hf_res)
         return _make_result(m, e_ev, e_ha, e_ev * EV_TO_KCAL,
-                            mol, solvent, charges, mp2_res)
+                            mol, solvent, charges, mp2_res;
+                            orbital_energies_ev=hf_res.mo_energies_hartree .* HARTREE_TO_EV)
 
     # ── 5b. CISD ────────────────────────────────────────────────────────────
     elseif m == :cisd
@@ -275,7 +301,8 @@ function _calculate(mol::Molecule, method::Symbol;
         e_ev     = cisd_res.total_cisd_energy_ev
         charges  = _charges(mol, hf_res)
         return _make_result(:cisd, e_ev, e_ha, e_ev * EV_TO_KCAL,
-                            mol, solvent, charges, cisd_res)
+                            mol, solvent, charges, cisd_res;
+                            orbital_energies_ev=hf_res.mo_energies_hartree .* HARTREE_TO_EV)
 
     # ── 5c. CCSD / CCSD(T) ──────────────────────────────────────────────────
     elseif m in (:ccsd, :ccsdt, :ccsd_t)
@@ -287,7 +314,8 @@ function _calculate(mol::Molecule, method::Symbol;
         e_ev   = e_ha * HARTREE_TO_EV
         charges = _charges(mol, hf_res)
         return _make_result(m, e_ev, e_ha, e_ev * EV_TO_KCAL,
-                            mol, solvent, charges, cc_res)
+                            mol, solvent, charges, cc_res;
+                            orbital_energies_ev=hf_res.mo_energies_hartree .* HARTREE_TO_EV)
 
     # ── 6. Excited States (CIS) ─────────────────────────────────────────────
     elseif m == :cis
@@ -298,7 +326,8 @@ function _calculate(mol::Molecule, method::Symbol;
         e_ev    = cis_res.ground_energy_ev
         charges = _charges(mol, scf_res)
         return _make_result(:cis, e_ev, e_ev / HARTREE_TO_EV, e_ev * EV_TO_KCAL,
-                            mol, solvent, charges, cis_res)
+                            mol, solvent, charges, cis_res;
+                            orbital_energies_ev=_orbital_energies_ev(scf_res))
 
     # ── 7. NMR Chemical Shifts & Shieldings ─────────────────────────────────
     elseif m in (:nmr, :nmr_shielding)
@@ -308,7 +337,8 @@ function _calculate(mol::Molecule, method::Symbol;
         e_ev    = hf_res.total_energy_ev
         charges = _charges(mol, hf_res)
         return _make_result(:nmr, e_ev, e_ha, e_ev * EV_TO_KCAL,
-                            mol, solvent, charges, nmr_res)
+                            mol, solvent, charges, nmr_res;
+                            orbital_energies_ev=_orbital_energies_ev(hf_res))
 
     else
         throw(ArgumentError("Unknown calculation method: $method. " *

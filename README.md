@@ -259,6 +259,11 @@ filename and extension are used as provided:
 result = calculate(mol, :b3lyp; basis="sto-3g", output_file="water.out")
 ```
 
+Unified quantum-chemistry results expose `result.orbital_energies_ev` as a
+vector of molecular orbital energies in eV. This is `nothing` for molecular
+mechanics methods. For post-HF methods, the values are from the underlying HF
+reference calculation (not correlated quasiparticle energies).
+
 Standalone solver results, such as `solve_huckel` or `solve_hf`, use the same
 formatter and writer:
 

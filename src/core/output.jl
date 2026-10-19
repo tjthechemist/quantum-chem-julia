@@ -65,12 +65,24 @@ function _write_value(io::IO, value; depth::Int=0)
     end
 end
 
+function _write_orbital_energies(io::IO, energies)
+    if isnothing(energies)
+        print(io, "unavailable")
+        return
+    end
+
+    for (index, energy) in enumerate(energies)
+        index > 1 && print(io, "\n  ")
+        @printf(io, "MO #%d: %.10g eV", index, energy)
+    end
+end
+
 """
     format_output(result; title=nothing) -> String
 
 Return a readable plain-text report for a calculation result or other result
 struct. Large arrays are represented by their type and dimensions to keep
-reports readable.
+reports readable, except molecular orbital energies, which are listed in eV.
 """
 function format_output(result; title::Union{Nothing, AbstractString}=nothing)::String
     io = IOBuffer()
@@ -81,7 +93,12 @@ function format_output(result; title::Union{Nothing, AbstractString}=nothing)::S
     if isstructtype(typeof(result))
         for name in fieldnames(typeof(result))
             print(io, name, ": ")
-            _write_value(io, getfield(result, name); depth=0)
+            value = getfield(result, name)
+            if name == :orbital_energies_ev
+                _write_orbital_energies(io, value)
+            else
+                _write_value(io, value; depth=0)
+            end
             println(io)
         end
     else
