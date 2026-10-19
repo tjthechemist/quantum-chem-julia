@@ -5,7 +5,7 @@
 module BondedPotentials
 
 using LinearAlgebra
-using ...MolMath
+using ..MolMath
 
 export HarmonicBond, MorseBond, Class2Bond,
        HarmonicAngle, FourierAngle, UreyBradleyAngle, Class2Angle,

@@ -4,9 +4,9 @@
 
 module QMMMEmbedding
 
-using ...Types
-using ...Elements
-using ...MolMath
+using ..Types
+using ..Elements
+using ..MolMath
 
 export QMMMSystem, create_qmmm_system, extract_subsystem
 

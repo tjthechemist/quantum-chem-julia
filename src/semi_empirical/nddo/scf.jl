@@ -6,11 +6,11 @@ module NDDOSCF
 
 using LinearAlgebra
 using Printf
-using ....Types
-using ....Elements
-using ....MolMath
-using ...SemiEmpiricalBase
-using ...SlaterOrbitals
+using ..Types
+using ..Elements
+using ..MolMath
+using ..SemiEmpiricalBase
+using ..SlaterOrbitals
 using ..NDDOParameters
 using ..NDDOBase
 
@@ -23,7 +23,7 @@ struct NDDOMethod <: AbstractSemiEmpiricalMethod
     model::Symbol # :mndo, :am1, :pm3, :rm1, :pm6
 end
 
-NDDOMethod(model::Symbol=:am1) = NDDOMethod(model)
+NDDOMethod() = NDDOMethod(:am1)
 
 struct NDDOResult
     model::Symbol
@@ -264,4 +264,3 @@ function print_nddo_summary(res::NDDOResult)
 end
 
 end # module NDDOSCF
-

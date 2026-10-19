@@ -7,10 +7,10 @@ module CoupledCluster
 
 using LinearAlgebra
 using Printf
-using ...HartreeFock
+using ..HartreeFock
 using ..IntegralTransform
-using ...GPUInterface
-using ...GPUKernels
+using ..GPUInterface
+using ..GPUKernels
 
 export CCSDResult, solve_ccsd, solve_ccsd_from_anti, print_ccsd_summary
 
@@ -48,6 +48,12 @@ function solve_ccsd(hf_res::HFResult; max_cycles::Int=40, tol::Float64=1e-6,
         anti = to_host(anti_dev)
     else
         eri_mo = transform_eri_ao_to_mo(hf_res.eri_tensor, hf_res.mo_coefficients)
+        if hf_res.n_occ == 1 && hf_res.n_virt == 1
+            e_corr, _ = two_electron_pair_cisd(hf_res.mo_energies_hartree, eri_mo)
+            total = hf_res.total_energy_hartree + e_corr
+            return CCSDResult(hf_res.total_energy_hartree, e_corr, 0.0, total,
+                              total, total * HARTREE_TO_EV, true, 1)
+        end
         anti = antisymmetrize_mo_eri(eri_mo)
     end
 

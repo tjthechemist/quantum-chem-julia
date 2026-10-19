@@ -5,8 +5,8 @@
 module SlaterOrbitals
 
 using LinearAlgebra
-using ...Types
-using ...Elements
+using ..Types
+using ..Elements
 
 export OrbitalInfo, AtomOrbitals, build_valence_basis,
        compute_overlap_matrix, get_orbital_zeta

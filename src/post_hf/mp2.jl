@@ -7,10 +7,10 @@ module MP2Theory
 using LinearAlgebra
 using Printf
 using ..BasisSets
-using ...HartreeFock
+using ..HartreeFock
 using ..IntegralTransform
-using ...GPUInterface
-using ...GPUKernels
+using ..GPUInterface
+using ..GPUKernels
 
 export MP2Result, solve_mp2, print_mp2_summary
 

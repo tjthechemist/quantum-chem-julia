@@ -6,8 +6,8 @@
 module DFTGrid
 
 using LinearAlgebra
-using ...Types
-using ...Elements
+using ..Types
+using ..Elements
 using ..BasisSets
 using ..DFTFunctionals
 

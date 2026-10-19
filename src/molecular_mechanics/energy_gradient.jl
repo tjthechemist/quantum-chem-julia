@@ -5,16 +5,16 @@
 module MMEnergyGradient
 
 using LinearAlgebra
-using ...Types
+using ..Types
 using ..MMBase
 using ..BondedPotentials
 using ..Dihedrals
 using ..NonBonded
-using .UFFForceField
-using .AMBERForceField
-using .OPLSForceField
-using .CHARMMForceField
-using .MM3ForceField
+using ..UFFForceField
+using ..AMBERForceField
+using ..OPLSForceField
+using ..CHARMMForceField
+using ..MM3ForceField
 
 export evaluate_mm, energy, gradient
 
@@ -202,4 +202,3 @@ energy(ff::AbstractForceField, mol::Molecule) = total_energy(evaluate_mm(ff, mol
 gradient(ff::AbstractForceField, mol::Molecule) = evaluate_mm(ff, mol; calc_grad=true)[2]
 
 end # module MMEnergyGradient
-

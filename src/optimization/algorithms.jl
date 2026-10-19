@@ -6,9 +6,9 @@ module OptimizationAlgorithms
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...MMBase
-using ...MMEnergyGradient
+using ..Types
+using ..MMBase
+using ..MMEnergyGradient
 using ..LineSearch
 
 export OptimizationResult, optimize_geometry!

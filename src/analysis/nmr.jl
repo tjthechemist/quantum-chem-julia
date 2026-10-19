@@ -8,15 +8,15 @@ module NMRSpectroscopy
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
-using ...SemiEmpiricalBase
-using ...SlaterOrbitals
-using ...GPUInterface
-using ...GPUKernels
-using ...HartreeFock
-using ...KohnShamDFT
+using ..Types
+using ..Elements
+using ..MolMath
+using ..SemiEmpiricalBase
+using ..SlaterOrbitals
+using ..GPUInterface
+using ..GPUKernels
+using ..HartreeFock
+using ..KohnShamDFT
 
 export NMRShieldingTensor, NMRNucleus, NMRResult,
        calc_nmr_shieldings, simulate_nmr_spectrum, print_nmr_summary,
@@ -179,9 +179,9 @@ function calc_nmr_shieldings(scf_res::Any, mol::Molecule;
         for mu in indices
             orb = basis[mu]
             if orb.l == 1
-                if orb.m == 1; px_idx = mu
-                elseif orb.m == -1; py_idx = mu
-                elseif orb.m == 0; pz_idx = mu
+                if orb.m_type == :px; px_idx = mu
+                elseif orb.m_type == :py; py_idx = mu
+                elseif orb.m_type == :pz; pz_idx = mu
                 end
             end
         end
@@ -411,4 +411,3 @@ function print_nmr_summary(res::NMRResult)
 end
 
 end # module NMRSpectroscopy
-

@@ -6,9 +6,9 @@ module HuckelTheory
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...Topology
+using ..Types
+using ..Elements
+using ..Topology
 using ..SemiEmpiricalBase
 
 export HuckelModel, solve_huckel, HuckelResult

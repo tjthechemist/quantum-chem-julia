@@ -6,9 +6,9 @@ module ZDOSemiEmpirical
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
+using ..Types
+using ..Elements
+using ..MolMath
 using ..SemiEmpiricalBase
 using ..SlaterOrbitals
 

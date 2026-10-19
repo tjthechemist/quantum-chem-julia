@@ -7,10 +7,10 @@ module ReactivityDescriptors
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...SemiEmpiricalBase
-using ...SlaterOrbitals
+using ..Types
+using ..Elements
+using ..SemiEmpiricalBase
+using ..SlaterOrbitals
 
 export ReactivityIndices, FukuiIndices, calc_reactivity_indices,
        calc_condensed_fukui, print_reactivity_summary

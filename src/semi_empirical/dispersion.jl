@@ -5,9 +5,9 @@
 module DispersionD3
 
 using LinearAlgebra
-using ...Types
-using ...Elements
-using ...MolMath
+using ..Types
+using ..Elements
+using ..MolMath
 
 export D3Correction, calc_d3_dispersion
 

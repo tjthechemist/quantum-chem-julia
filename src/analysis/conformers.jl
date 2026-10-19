@@ -7,13 +7,13 @@ module ConformationalSearch
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
-using ...Topology
-using ...MMBase
-using ...MMEnergyGradient
-using ...OptimizationAlgorithms
+using ..Types
+using ..Elements
+using ..MolMath
+using ..Topology
+using ..MMBase
+using ..MMEnergyGradient
+using ..OptimizationAlgorithms
 
 export Conformer, ConformerEnsemble, search_conformers,
        boltzmann_populations, print_conformer_summary

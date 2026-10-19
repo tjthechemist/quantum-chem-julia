@@ -56,7 +56,8 @@ DIISController(max_subspace::Int=6) = DIISController(Matrix{Float64}[], Matrix{F
 Updates DIIS subspace and returns extrapolated Fock matrix F_diis.
 Error vector e = F*P*S - S*P*F (commutator).
 """
-function diis_update!(diis::DIISController, F::Matrix{Float64}, P::Matrix{Float64}, S::Matrix{Float64})::Matrix{Float64}
+function diis_update!(diis::DIISController, F::Matrix{Float64}, P::Matrix{Float64},
+                      S::AbstractMatrix{<:Real})::Matrix{Float64}
     # Commutator error matrix e = F*P*S - S*P*F
     e = F * P * S - S * P * F
 
@@ -129,4 +130,3 @@ function print_scf_summary(res::SCFResult)
 end
 
 end # module SemiEmpiricalBase
-

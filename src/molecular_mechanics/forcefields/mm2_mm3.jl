@@ -5,14 +5,14 @@
 module MM3ForceField
 
 using LinearAlgebra
-using ....Types
-using ....Elements
-using ....Topology
-using ...MMBase
-using ...BondedPotentials
-using ...Dihedrals
-using ...NonBonded
-using ....MolMath
+using ..Types
+using ..Elements
+using ..Topology
+using ..MMBase
+using ..BondedPotentials
+using ..Dihedrals
+using ..NonBonded
+using ..MolMath
 
 export MM3, parameterize_mm3
 

@@ -6,8 +6,8 @@
 module BasisSets
 
 using LinearAlgebra
-using ...Types
-using ...Elements
+using ..Types
+using ..Elements
 
 export PrimitiveGaussian, ContractedGaussian, BasisSet,
        build_basis, n_basis

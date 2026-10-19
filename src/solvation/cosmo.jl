@@ -7,12 +7,12 @@ module SolvationModels
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
+using ..Types
+using ..Elements
+using ..MolMath
 
 export Solvent, SolvationResult, calc_solvation_energy,
-       SOLVENTS, get_solvent
+       SOLVENTS, get_solvent, print_solvation_summary
 
 struct Solvent
     name::String
@@ -175,4 +175,3 @@ function print_solvation_summary(res::SolvationResult)
 end
 
 end # module SolvationModels
-

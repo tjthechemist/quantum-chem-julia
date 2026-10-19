@@ -5,7 +5,7 @@
 module NonBonded
 
 using LinearAlgebra
-using ...MolMath
+using ..MolMath
 
 export LJParam, BuckinghamParam, CoulombParam,
        calc_lj_energy_and_grad, calc_coulomb_energy_and_grad,

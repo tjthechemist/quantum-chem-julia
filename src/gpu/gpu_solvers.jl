@@ -7,27 +7,27 @@ module GPUSolvers
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...SemiEmpiricalBase
-using ...ZDOSemiEmpirical
-using ...NDDOSCF
-using ...MMBase
-using ...MMEnergyGradient
-using ...BasisSets
-using ...MolecularIntegrals
-using ...HartreeFock
-using ...DFTFunctionals
-using ...DFTGrid
-using ...KohnShamDFT
-using ...IntegralTransform
-using ...MP2Theory
-using ...CISDTheory
-using ...CoupledCluster
-using ...CISExcitedStates
+using ..Types
+using ..Elements
+using ..SemiEmpiricalBase
+using ..ZDOSemiEmpirical
+using ..NDDOSCF
+using ..MMBase
+using ..MMEnergyGradient
+using ..BasisSets
+using ..MolecularIntegrals
+using ..HartreeFock
+using ..DFTFunctionals
+using ..DFTGrid
+using ..KohnShamDFT
+using ..IntegralTransform
+using ..MP2Theory
+using ..CISDTheory
+using ..CoupledCluster
+using ..CISExcitedStates
 using ..GPUInterface
 using ..GPUKernels
-using ...NMRSpectroscopy
+using ..NMRSpectroscopy
 
 export solve_scf_gpu, evaluate_mm_gpu, run_md_gpu,
        solve_hf_gpu, solve_dft_gpu, solve_mp2_gpu,

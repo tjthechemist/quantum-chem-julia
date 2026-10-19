@@ -6,9 +6,9 @@ module PopulationAnalysis
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...SlaterOrbitals
+using ..Types
+using ..Elements
+using ..SlaterOrbitals
 
 export mulliken_analysis, lowdin_analysis, PopulationResult
 

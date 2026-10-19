@@ -7,9 +7,9 @@ module NEBMethod
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...MMBase
-using ...MMEnergyGradient
+using ..Types
+using ..MMBase
+using ..MMEnergyGradient
 
 export NEBPath, run_neb, NEBResult
 

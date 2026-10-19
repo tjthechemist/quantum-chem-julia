@@ -7,7 +7,8 @@ module IntegralTransform
 
 using LinearAlgebra
 
-export transform_eri_ao_to_mo, antisymmetrize_mo_eri
+export transform_eri_ao_to_mo, antisymmetrize_mo_eri,
+       two_electron_pair_cisd
 
 """
     transform_eri_ao_to_mo(eri_ao::Array{Float64, 4}, C::Matrix{Float64})::Array{Float64, 4}
@@ -106,5 +107,15 @@ function antisymmetrize_mo_eri(eri_mo::Array{Float64, 4})::Array{Float64, 4}
     return anti
 end
 
-end # module IntegralTransform
+function two_electron_pair_cisd(eps::AbstractVector{<:Real},
+                                eri_mo::Array{Float64, 4})
+    gap = eps[2] - eps[1]
+    coupling = eri_mo[1, 2, 1, 2]
+    diagonal = 2.0 * gap + eri_mo[1, 1, 1, 1] +
+               eri_mo[2, 2, 2, 2] - 2.0 * coupling
+    eigenvalue = (diagonal - hypot(diagonal, 2.0 * coupling)) / 2.0
+    reference_weight = 0.5 * (1.0 + diagonal / hypot(diagonal, 2.0 * coupling))
+    return eigenvalue, reference_weight
+end
 
+end # module IntegralTransform

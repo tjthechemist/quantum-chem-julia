@@ -5,13 +5,13 @@
 module CHARMMForceField
 
 using LinearAlgebra
-using ....Types
-using ....Elements
-using ....Topology
-using ...MMBase
-using ...BondedPotentials
-using ...Dihedrals
-using ...NonBonded
+using ..Types
+using ..Elements
+using ..Topology
+using ..MMBase
+using ..BondedPotentials
+using ..Dihedrals
+using ..NonBonded
 
 export CHARMM, parameterize_charmm
 

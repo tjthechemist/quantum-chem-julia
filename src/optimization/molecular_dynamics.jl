@@ -6,10 +6,10 @@ module MolecularDynamics
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MMBase
-using ...MMEnergyGradient
+using ..Types
+using ..Elements
+using ..MMBase
+using ..MMEnergyGradient
 
 export MDSimulation, run_md, TrajectoryFrame
 

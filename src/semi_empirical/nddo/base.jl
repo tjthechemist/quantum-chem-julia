@@ -5,9 +5,9 @@
 module NDDOBase
 
 using LinearAlgebra
-using ....Types
-using ....Elements
-using ....MolMath
+using ..Types
+using ..Elements
+using ..MolMath
 using ..NDDOParameters
 
 export calc_core_repulsion, calc_nddo_two_electron_integral,

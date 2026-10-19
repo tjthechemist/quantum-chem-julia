@@ -5,7 +5,7 @@
 module Dihedrals
 
 using LinearAlgebra
-using ...MolMath
+using ..MolMath
 
 export PeriodicTorsion, FourierTerm, RyckaertBellemansTorsion,
        HarmonicImproper, CosineImproper,

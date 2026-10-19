@@ -5,13 +5,13 @@
 module OPLSForceField
 
 using LinearAlgebra
-using ....Types
-using ....Elements
-using ....Topology
-using ...MMBase
-using ...BondedPotentials
-using ...Dihedrals
-using ...NonBonded
+using ..Types
+using ..Elements
+using ..Topology
+using ..MMBase
+using ..BondedPotentials
+using ..Dihedrals
+using ..NonBonded
 
 export OPLS, parameterize_opls
 

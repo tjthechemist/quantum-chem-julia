@@ -6,8 +6,8 @@ module Thermochemistry
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
+using ..Types
+using ..Elements
 using ..Spectroscopy
 
 export ThermochemistryResult, calc_thermochemistry, print_thermo_summary

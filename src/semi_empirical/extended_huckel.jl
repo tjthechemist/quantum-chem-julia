@@ -6,8 +6,8 @@ module ExtendedHuckel
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
+using ..Types
+using ..Elements
 using ..SemiEmpiricalBase
 using ..SlaterOrbitals
 

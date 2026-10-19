@@ -7,11 +7,11 @@ module Spectroscopy
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
-using ...MMBase
-using ...MMEnergyGradient
+using ..Types
+using ..Elements
+using ..MolMath
+using ..MMBase
+using ..MMEnergyGradient
 
 export UVVisTransition, calc_uv_vis_cis, generate_uv_vis_spectrum,
        VibrationalMode, calc_vibrational_frequencies, generate_ir_spectrum,

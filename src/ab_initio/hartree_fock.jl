@@ -7,14 +7,14 @@ module HartreeFock
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
-using ...SemiEmpiricalBase
+using ..Types
+using ..Elements
+using ..MolMath
+using ..SemiEmpiricalBase
 using ..BasisSets
 using ..MolecularIntegrals
-using ...GPUInterface
-using ...GPUKernels
+using ..GPUInterface
+using ..GPUKernels
 
 export HFResult, solve_hf, print_hf_summary
 

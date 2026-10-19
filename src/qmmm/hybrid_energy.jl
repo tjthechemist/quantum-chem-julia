@@ -6,15 +6,15 @@ module QMMMEnergy
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
-using ...MMBase
-using ...MMEnergyGradient
-using ...UFFForceField
-using ...NonBonded
-using ...SemiEmpiricalBase
-using ...NDDOSCF
+using ..Types
+using ..Elements
+using ..MolMath
+using ..MMBase
+using ..MMEnergyGradient
+using ..UFFForceField
+using ..NonBonded
+using ..SemiEmpiricalBase
+using ..NDDOSCF
 using ..QMMMEmbedding
 
 export evaluate_qmmm, QMMMResult, print_qmmm_summary

@@ -6,7 +6,7 @@ module DipoleAnalysis
 
 using LinearAlgebra
 using Printf
-using ...Types
+using ..Types
 
 export calc_molecular_dipole, DipoleResult
 

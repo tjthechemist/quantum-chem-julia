@@ -7,9 +7,9 @@ module IRCMethod
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...MMBase
-using ...MMEnergyGradient
+using ..Types
+using ..MMBase
+using ..MMEnergyGradient
 
 export trace_irc, IRCResult, IRCPoint
 

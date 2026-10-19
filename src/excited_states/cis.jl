@@ -8,14 +8,14 @@ module CISExcitedStates
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
-using ...SemiEmpiricalBase
-using ...SlaterOrbitals
-using ...ZDOSemiEmpirical
-using ...GPUInterface
-using ...GPUKernels
+using ..Types
+using ..Elements
+using ..MolMath
+using ..SemiEmpiricalBase
+using ..SlaterOrbitals
+using ..ZDOSemiEmpirical
+using ..GPUInterface
+using ..GPUKernels
 
 export ExcitedState, CISResult, solve_cis, compute_excited_state_dipole
 

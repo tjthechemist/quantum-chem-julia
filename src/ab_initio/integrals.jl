@@ -7,8 +7,8 @@ module MolecularIntegrals
 
 using LinearAlgebra
 using SpecialFunctions
-using ...Types
-using ...Elements
+using ..Types
+using ..Elements
 using ..BasisSets
 
 export compute_overlap, compute_kinetic, compute_nuclear_attraction,
@@ -46,17 +46,24 @@ end
 # --- Primitive 1D Gaussian Integrals ---
 
 function overlap_1d(l1::Int, l2::Int, x1::Float64, x2::Float64, gamma::Float64, Px::Float64)
-    if l1 == 0 && l2 == 0
-        return 1.0
-    elseif l1 == 1 && l2 == 0
-        return Px - x1
-    elseif l1 == 0 && l2 == 1
-        return Px - x2
-    elseif l1 == 1 && l2 == 1
-        return (1.0 / (2.0 * gamma)) + (Px - x1) * (Px - x2)
-    else
-        return 0.0
+    moment = 1.0
+    result = 0.0
+    for i in 0:l1
+        for j in 0:l2
+            power = i + j
+            if isodd(power)
+                moment = 0.0
+            else
+                moment = 1.0
+                for k in 1:div(power, 2)
+                    moment *= (2k - 1) / (2.0 * gamma)
+                end
+            end
+            result += binomial(l1, i) * binomial(l2, j) *
+                      (Px - x1)^(l1 - i) * (Px - x2)^(l2 - j) * moment
+        end
     end
+    return result
 end
 
 function kinetic_1d(l1::Int, l2::Int, x1::Float64, x2::Float64, alpha1::Float64, alpha2::Float64, gamma::Float64, Px::Float64)
@@ -322,4 +329,3 @@ function compute_eri_tensor(bs::BasisSet)::Array{Float64, 4}
 end
 
 end # module MolecularIntegrals
-

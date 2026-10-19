@@ -434,14 +434,15 @@ H  0.000000   -0.757200   -0.469200
               res_hf_hex.solvation.electrostatic_solv_kcal
 
         # ── print_solvation_summary smoke test ───────────────────────────────
-        buf = IOBuffer()
-        redirect_stdout(buf) do
-            print_solvation_summary(res_hf_aq.solvation)
+        mktemp() do _, buf
+            redirect_stdout(buf) do
+                print_solvation_summary(res_hf_aq.solvation)
+            end
+            seekstart(buf)
+            out = read(buf, String)
+            @test contains(out, "Water")
+            @test contains(out, "ΔG_solv")
         end
-        out = String(take!(buf))
-        @test contains(out, "Water")
-        @test contains(out, "ΔG_solv")
     end
 
 end
-

@@ -108,6 +108,14 @@ function _charges(mol::Molecule, raw)::Vector{Float64}
         return raw.mulliken_charges
     elseif hasproperty(raw, :partial_charges)
         return raw.partial_charges
+    elseif hasproperty(raw, :density_matrix) &&
+           hasproperty(raw, :overlap_matrix) && hasproperty(raw, :basis)
+        density_overlap = raw.density_matrix * raw.overlap_matrix
+        basis_functions = raw.basis.functions
+        return [Float64(mol.atoms[atom].atomic_number) -
+                sum(density_overlap[mu, mu] for mu in eachindex(basis_functions)
+                    if basis_functions[mu].atom_index == atom)
+                for atom in 1:nat]
     else
         return [mol.atoms[i].partial_charge for i in 1:nat]
     end
@@ -158,7 +166,7 @@ function calculate(mol::Molecule, method::Symbol;
                    options::SCFOptions=SCFOptions(),
                    kwargs...)::CalculationResult
 
-    m = lowercase(method)
+    m = Symbol(lowercase(string(method)))
 
     # ── 1. Molecular Mechanics ──────────────────────────────────────────────
     if m in (:uff, :amber, :opls, :charmm, :mm3)
@@ -173,7 +181,8 @@ function calculate(mol::Molecule, method::Symbol;
         e_kcal = total_energy(ec)
         e_ev   = e_kcal * KCAL_TO_EV
         e_ha   = e_ev   / HARTREE_TO_EV
-        charges = [mol.atoms[i].partial_charge for i in 1:n_atoms(mol)]
+        charges = m == :uff ? estimate_uff_charges(mol) :
+                  [mol.atoms[i].partial_charge for i in 1:n_atoms(mol)]
         return _make_result(m, e_ev, e_ha, e_kcal, mol, solvent, charges, ec)
 
     # ── 2a. Hückel (pi-electron only) ──────────────────────────────────────

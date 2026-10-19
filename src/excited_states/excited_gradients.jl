@@ -7,10 +7,10 @@ module ExcitedGradients
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...SemiEmpiricalBase
-using ...ZDOSemiEmpirical
+using ..Types
+using ..Elements
+using ..SemiEmpiricalBase
+using ..ZDOSemiEmpirical
 using ..CISExcitedStates
 
 export calc_excited_state_energy_and_gradient, optimize_excited_state!

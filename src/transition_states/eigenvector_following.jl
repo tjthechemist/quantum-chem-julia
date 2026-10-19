@@ -7,9 +7,9 @@ module EigenvectorFollowing
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...MMBase
-using ...MMEnergyGradient
+using ..Types
+using ..MMBase
+using ..MMEnergyGradient
 
 export optimize_transition_state!, TSResult
 

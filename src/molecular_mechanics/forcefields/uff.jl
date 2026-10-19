@@ -5,15 +5,15 @@
 module UFFForceField
 
 using LinearAlgebra
-using ....Types
-using ....Elements
-using ....Topology
-using ...MMBase
-using ...BondedPotentials
-using ...Dihedrals
-using ...NonBonded
+using ..Types
+using ..Elements
+using ..Topology
+using ..MMBase
+using ..BondedPotentials
+using ..Dihedrals
+using ..NonBonded
 
-export UFF, parameterize_uff
+export UFF, parameterize_uff, estimate_uff_charges
 
 # UFF parameter record for element/type:
 # (r1, theta0, x1, D1, zeta, Z_star, chi, V_phi)
@@ -69,6 +69,20 @@ function get_uff_param(sym::Symbol)::UFFAtomParam
         # Default fallback parameter for generic atoms
         UFFAtomParam(1.0, 109.47, 3.8, 0.1, 12.0, 2.0, 5.0, 0.5)
     end
+end
+
+function estimate_uff_charges(mol::Molecule)::Vector{Float64}
+    isempty(mol.atoms) && return Float64[]
+    charges = Float64[atom.formal_charge for atom in mol.atoms]
+    for bond in mol.bonds
+        chi_i = get_uff_param(mol.atoms[bond.i].symbol).chi
+        chi_j = get_uff_param(mol.atoms[bond.j].symbol).chi
+        transfer = 0.1 * (chi_j - chi_i)
+        charges[bond.i] += transfer
+        charges[bond.j] -= transfer
+    end
+    charges .+= (mol.total_charge - sum(charges)) / length(charges)
+    return charges
 end
 
 """
@@ -196,4 +210,3 @@ function parameterize_uff(mol::Molecule)::UFF
 end
 
 end # module UFFForceField
-

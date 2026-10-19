@@ -7,10 +7,10 @@ module CISDTheory
 
 using LinearAlgebra
 using Printf
-using ...HartreeFock
+using ..HartreeFock
 using ..IntegralTransform
-using ...GPUInterface
-using ...GPUKernels
+using ..GPUInterface
+using ..GPUKernels
 
 export CISDResult, solve_cisd, solve_cisd_from_anti, print_cisd_summary
 
@@ -44,6 +44,12 @@ function solve_cisd(hf_res::HFResult; max_doubles::Int=50,
         anti = to_host(anti_dev)
     else
         eri_mo = transform_eri_ao_to_mo(hf_res.eri_tensor, hf_res.mo_coefficients)
+        if hf_res.n_occ == 1 && hf_res.n_virt == 1
+            e_corr, c0_sq = two_electron_pair_cisd(hf_res.mo_energies_hartree, eri_mo)
+            total = hf_res.total_energy_hartree + e_corr
+            return CISDResult(hf_res.total_energy_hartree, e_corr, total,
+                              total * HARTREE_TO_EV, c0_sq, 2)
+        end
         anti = antisymmetrize_mo_eri(eri_mo)
     end
 

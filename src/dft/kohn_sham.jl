@@ -7,16 +7,16 @@ module KohnShamDFT
 
 using LinearAlgebra
 using Printf
-using ...Types
-using ...Elements
-using ...MolMath
-using ...SemiEmpiricalBase
+using ..Types
+using ..Elements
+using ..MolMath
+using ..SemiEmpiricalBase
 using ..BasisSets
 using ..MolecularIntegrals
 using ..DFTFunctionals
 using ..DFTGrid
-using ...GPUInterface
-using ...GPUKernels
+using ..GPUInterface
+using ..GPUKernels
 
 export DFTResult, solve_dft, print_dft_summary
 
