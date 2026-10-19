@@ -29,6 +29,10 @@ println("Atoms: ", n_atoms(mol), " | Detected Bonds: ", n_bonds(mol))
 model = HuckelModel(alpha0_ev=-11.26, beta0_ev=-2.70)
 result = solve_huckel(mol, model)
 
+# Save the solver result as a readable plain-text report. The extension is
+# caller-selected; the report contents remain plain text.
+write_output("benzene_huckel.out", result; title="Benzene Hückel Results")
+
 # Print Summary
 println("\n--- Hückel Results ---")
 println("Total Pi Energy: ", round(result.total_pi_energy_beta, digits=4), " β (",
@@ -44,4 +48,3 @@ println("\nCoulson Pi Bond Orders:")
 for ((i, j), bo) in result.bond_orders
     println("  Bond ($i - $j): p = $(round(bo, digits=4)) (Total order = $(round(1.0 + bo, digits=4)))")
 end
-

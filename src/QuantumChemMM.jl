@@ -155,13 +155,17 @@ using .ReactivityDescriptors
 using .ConformationalSearch
 using .NMRSpectroscopy
 
-# 14. Multi-Vendor GPU High-Level Solvers (NVIDIA, AMD, Intel)
+# 14. Human-readable text output for calculation results
+include("core/output.jl")
+using .ResultOutput
+
+# 15. Multi-Vendor GPU High-Level Solvers (NVIDIA, AMD, Intel)
 # NOTE: Loaded after Analysis so GPUSolvers can import NMRSpectroscopy
 include("gpu/gpu_solvers.jl")
 
 using .GPUSolvers
 
-# 15. Unified High-Level Dispatcher
+# 16. Unified High-Level Dispatcher
 include("calculate.jl")
 using .UnifiedCalculation
 
@@ -171,6 +175,7 @@ using .UnifiedCalculation
 
 # Unified Entry Point
 export calculate, CalculationResult
+export format_output, write_output
 
 # Core Types & IO
 export Atom, Bond, Angle, Dihedral, Improper, Molecule,

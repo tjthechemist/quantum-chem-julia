@@ -223,8 +223,19 @@ H  0.0  0.0  0.7414
         res_mp2 = calculate(mol, :mp2)
         @test res_mp2.total_energy_hartree < res_hf.total_energy_hartree
 
-        res_uff = calculate(mol, :uff)
+        res_uff = mktempdir() do output_dir
+            output_path = joinpath(output_dir, "h2-report.custom")
+            result = calculate(mol, :uff; output_file=output_path)
+            report = format_output(result)
+            @test occursin("QuantumChemMM Calculation Report", report)
+            @test occursin("total_energy_hartree", report)
+            @test isfile(output_path)
+            @test read(output_path, String) == report
+            @test sprint(show, MIME"text/plain"(), result) == report
+            result
+        end
         @test isfinite(res_uff.total_energy_kcal)
+        @test occursin("e_bond", format_output(res_uff.raw_result))
 
         # Solvated HF/water: ΔG_solv should shift the total
         res_hf_aq = calculate(mol, :hf; solvent=:water)

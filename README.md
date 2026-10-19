@@ -249,6 +249,30 @@ println("ΔG_solv: ", res_ccsd.solvation.total_delta_g_solv_kcal, " kcal/mol")
 print_solvation_summary(res_dft.solvation)
 ```
 
+### Formatted reports and text output
+
+Calculation results can be formatted and saved consistently for every method.
+Pass `output_file` to `calculate` to save a plain-text report automatically; the
+filename and extension are used as provided:
+
+```julia
+result = calculate(mol, :b3lyp; basis="sto-3g", output_file="water.out")
+```
+
+Standalone solver results, such as `solve_huckel` or `solve_hf`, use the same
+formatter and writer:
+
+```julia
+raw_result = solve_huckel(mol)
+println(format_output(raw_result))
+write_output("benzene.result", raw_result; title="Benzene Hückel Results")
+```
+
+`format_output(result)` returns a plain-text string. `write_output(filename,
+result)` writes that report to the exact filename, with any extension (for
+example `.txt`, `.out`, or `.log`). Large matrices and tensors are represented
+by their dimensions so reports remain readable.
+
 ---
 
 ## 📂 Repository Structure

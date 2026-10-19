@@ -32,6 +32,7 @@ using ..NMRSpectroscopy
 using ..SolvationModels
 using ..GPUInterface
 using ..GPUSolvers
+using ..ResultOutput: format_output, write_output
 
 export calculate, CalculationResult
 
@@ -158,7 +159,7 @@ implicit solvation free energy (ΔG_solv) is computed and added to the total.
 Gas-phase energies are always preserved in `result.total_energy_*`; solvated
 totals are in `result.total_energy_solv_*`.
 """
-function calculate(mol::Molecule, method::Symbol;
+function _calculate(mol::Molecule, method::Symbol;
                    basis::String="sto-3g",
                    functional::Symbol=:b3lyp,
                    solvent::Symbol=:vacuum,
@@ -317,5 +318,23 @@ function calculate(mol::Molecule, method::Symbol;
               ":mp2, :scs_mp2, :cisd, :ccsd, :ccsdt, :cis, :nmr"))
     end
 end
+
+"""
+    calculate(mol, method; output_file=nothing, kwargs...)
+
+Run a calculation and return its `CalculationResult`. When `output_file` is
+provided, save a formatted plain-text report using that exact filename and
+extension. All other keywords are forwarded to the calculation method.
+"""
+function calculate(mol::Molecule, method::Symbol;
+                   output_file::Union{Nothing, AbstractString}=nothing,
+                   kwargs...)::CalculationResult
+    result = _calculate(mol, method; kwargs...)
+    isnothing(output_file) || write_output(output_file, result)
+    return result
+end
+
+Base.show(io::IO, ::MIME"text/plain", result::CalculationResult) =
+    print(io, format_output(result))
 
 end # module UnifiedCalculation
