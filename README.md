@@ -21,6 +21,15 @@ Hardware acceleration is fully supported across all major vendors via Julia pack
 5. **Excited States (CIS)**: Batched transition-charge contractions and CIS Hamiltonian matrix setup on device arrays.
 6. **Molecular Mechanics & MD**: $O(N^2)$ pairwise Lennard-Jones, Coulomb electrostatics, and Velocity Verlet integration on GPU.
 
+### 🧵 Multicore CPU Execution
+CPU calculations use Julia threads for the independent Gaussian integral, HF/DFT matrix, and DFT integration-grid work. Start Julia with multiple threads to enable multicore execution; `auto` selects the available CPU cores:
+
+```sh
+julia --threads auto --project=.
+```
+
+Run a calculation as usual (for example, `calculate(mol, :b3lyp; device=CPUDevice())`). To limit CPU usage, replace `auto` with a thread count such as `--threads 4`. Julia's default is one thread, so the `--threads` option must be set when launching Julia.
+
 ---
 
 ### 🧲 Nuclear Magnetic Resonance (NMR) Spectroscopy (`src/analysis/nmr.jl`)
@@ -275,4 +284,3 @@ QuantumChemMM/
 
 ## 📜 License
 MIT License.
-

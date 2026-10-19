@@ -6,6 +6,7 @@
 module KohnShamDFT
 
 using LinearAlgebra
+using Base.Threads: @threads
 using Printf
 using ..Types
 using ..Elements
@@ -134,7 +135,7 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
 
         # Precompute basis values at grid points
         basis_values = zeros(Float64, n_pts, nb)
-        for g in 1:n_pts
+        @threads for g in 1:n_pts
             rg = grid.points[g]
             for mu in 1:nb
                 basis_values[g, mu] = BasisSets.evaluate_basis(bs.functions[mu], rg)
@@ -225,7 +226,7 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
             J = zeros(Float64, nb, nb)
             K = zeros(Float64, nb, nb)
 
-            for mu in 1:nb
+            @threads for mu in 1:nb
                 for nu in mu:nb
                     val_j = 0.0
                     val_k = 0.0
@@ -240,11 +241,15 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
                         end
                     end
                     J[mu, nu] = val_j
-                    J[nu, mu] = val_j
                     if c_x > 0.0
                         K[mu, nu] = val_k
-                        K[nu, mu] = val_k
                     end
+                end
+            end
+            for mu in 1:nb
+                for nu in (mu + 1):nb
+                    J[nu, mu] = J[mu, nu]
+                    K[nu, mu] = K[mu, nu]
                 end
             end
 

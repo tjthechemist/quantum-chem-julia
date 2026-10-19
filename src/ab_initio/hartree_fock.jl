@@ -6,6 +6,7 @@
 module HartreeFock
 
 using LinearAlgebra
+using Base.Threads: @threads
 using Printf
 using ..Types
 using ..Elements
@@ -182,7 +183,7 @@ function solve_hf(mol::Molecule; basis_name::String="sto-3g",
             cycles = iter
 
             F .= H_core
-            for mu in 1:nb
+            @threads for mu in 1:nb
                 for nu in mu:nb
                     val_2e = 0.0
                     for lam in 1:nb
@@ -195,6 +196,10 @@ function solve_hf(mol::Molecule; basis_name::String="sto-3g",
                         end
                     end
                     F[mu, nu] += val_2e
+                end
+            end
+            for mu in 1:nb
+                for nu in (mu + 1):nb
                     F[nu, mu] = F[mu, nu]
                 end
             end

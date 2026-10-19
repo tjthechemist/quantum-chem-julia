@@ -6,6 +6,7 @@
 module DFTGrid
 
 using LinearAlgebra
+using Base.Threads: @threads, nthreads
 using ..Types
 using ..Elements
 using ..BasisSets
@@ -111,44 +112,56 @@ Computes the Exchange-Correlation potential matrix V_xc and total XC energy E_xc
 function integrate_xc_matrix_and_energy(grid::MolecularGrid, bs::BasisSet,
                                         P::Matrix{Float64}, func::XCFunctional)
     nb = n_basis(bs)
-    V_xc = zeros(Float64, nb, nb)
-    E_xc = 0.0
+    n_chunks = min(nthreads(), max(grid.n_points, 1))
+    chunk_size = cld(grid.n_points, n_chunks)
+    V_xc_by_chunk = [zeros(Float64, nb, nb) for _ in 1:n_chunks]
+    E_xc_by_chunk = zeros(Float64, n_chunks)
+    chi_vals_by_chunk = [zeros(Float64, nb) for _ in 1:n_chunks]
+    P_chi_by_chunk = [zeros(Float64, nb) for _ in 1:n_chunks]
 
-    # Evaluate on grid
-    chi_vals = zeros(Float64, nb)
+    @threads for chunk_idx in 1:n_chunks
+        first_point = (chunk_idx - 1) * chunk_size + 1
+        last_point = min(chunk_idx * chunk_size, grid.n_points)
 
-    for pt in grid.points
-        r = pt.coords
-        w = pt.weight
+        for point_idx in first_point:last_point
+            pt = grid.points[point_idx]
+            r = pt.coords
+            w = pt.weight
 
-        # Basis functions at r
-        for mu in 1:nb
-            chi_vals[mu] = eval_basis_function(bs.functions[mu], r)
-        end
-
-        # Electron density rho(r) = sum_{mu, nu} P_mu,nu * chi_mu(r) * chi_nu(r)
-        rho = dot(chi_vals, P * chi_vals)
-        if rho > 1e-10
-            eps_xc, v_xc = DFTFunctionals.evaluate_xc(func, rho)
-            E_xc += w * rho * eps_xc
-
-            # V_xc_mu,nu += w * v_xc * chi_mu * chi_nu
-            pref = w * v_xc
+            # Basis functions at r
             for mu in 1:nb
-                c_mu = chi_vals[mu]
-                for nu in mu:nb
-                    v_val = pref * c_mu * chi_vals[nu]
-                    V_xc[mu, nu] += v_val
-                    if mu != nu
-                        V_xc[nu, mu] += v_val
+                chi_vals_by_chunk[chunk_idx][mu] = eval_basis_function(bs.functions[mu], r)
+            end
+
+            # Electron density rho(r) = sum_{mu, nu} P_mu,nu * chi_mu(r) * chi_nu(r)
+            mul!(P_chi_by_chunk[chunk_idx], P, chi_vals_by_chunk[chunk_idx])
+            rho = dot(chi_vals_by_chunk[chunk_idx], P_chi_by_chunk[chunk_idx])
+            if rho > 1e-10
+                eps_xc, v_xc = DFTFunctionals.evaluate_xc(func, rho)
+                E_xc_by_chunk[chunk_idx] += w * rho * eps_xc
+
+                # V_xc_mu,nu += w * v_xc * chi_mu * chi_nu
+                pref = w * v_xc
+                for mu in 1:nb
+                    c_mu = chi_vals_by_chunk[chunk_idx][mu]
+                    for nu in mu:nb
+                        v_val = pref * c_mu * chi_vals_by_chunk[chunk_idx][nu]
+                        V_xc_by_chunk[chunk_idx][mu, nu] += v_val
+                        if mu != nu
+                            V_xc_by_chunk[chunk_idx][nu, mu] += v_val
+                        end
                     end
                 end
             end
         end
     end
 
+    V_xc = zeros(Float64, nb, nb)
+    for chunk_idx in eachindex(V_xc_by_chunk)
+        V_xc .+= V_xc_by_chunk[chunk_idx]
+    end
+    E_xc = sum(E_xc_by_chunk)
     return V_xc, E_xc
 end
 
 end # module DFTGrid
-

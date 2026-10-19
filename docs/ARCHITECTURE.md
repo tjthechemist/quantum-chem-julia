@@ -296,7 +296,7 @@ with non-iterative perturbative triples correction $E_{(T)}$ yielding the "gold 
 - **NVIDIA GPUs** via `CUDA.jl` (`CuArray`)
 - **AMD ROCm GPUs** via `AMDGPU.jl` (`ROCArray`)
 - **Intel oneAPI GPUs** via `oneAPI.jl` (`oneArray`)
-- **Host CPU** fallback via multithreaded SIMD `Array`
+- **Host CPU** fallback using Julia threads for independent Gaussian-integral, HF/DFT matrix, and DFT grid work. Launch Julia with `--threads auto` or `--threads N` to enable multiple CPU threads.
 
 ### 14.1 GPU Two-Electron Fock Matrix Construction
 In canonical Hartree-Fock and hybrid DFT, evaluating the Coulomb $\mathbf{J}$ and Exchange $\mathbf{K}$ matrices requires contracting the 4-index Two-Electron Repulsion Integral (ERI) tensor with the 2-index density matrix $\mathbf{P}$:

@@ -6,6 +6,7 @@
 module MolecularIntegrals
 
 using LinearAlgebra
+using Base.Threads: @threads
 using SpecialFunctions
 using ..Types
 using ..Elements
@@ -179,7 +180,7 @@ Evaluates the full molecular overlap matrix S_μν.
 function compute_overlap(bs::BasisSet)::Matrix{Float64}
     nb = n_basis(bs)
     S = zeros(Float64, nb, nb)
-    for mu in 1:nb
+    @threads for mu in 1:nb
         c1 = bs.functions[mu]
         l1 = (c1.lx, c1.ly, c1.lz)
         for nu in mu:nb
@@ -208,7 +209,7 @@ Evaluates the kinetic energy matrix T_μν.
 function compute_kinetic(bs::BasisSet)::Matrix{Float64}
     nb = n_basis(bs)
     T = zeros(Float64, nb, nb)
-    for mu in 1:nb
+    @threads for mu in 1:nb
         c1 = bs.functions[mu]
         l1 = (c1.lx, c1.ly, c1.lz)
         for nu in mu:nb
@@ -242,7 +243,7 @@ function compute_nuclear_attraction(bs::BasisSet, mol::Molecule)::Matrix{Float64
     coords_bohr = [mol.atoms[i].coords .* BasisSets.ANGSTROM_TO_BOHR for i in 1:nat]
     z_vals = [Float64(mol.atoms[i].atomic_number) for i in 1:nat]
 
-    for mu in 1:nb
+    @threads for mu in 1:nb
         c1 = bs.functions[mu]
         l1 = (c1.lx, c1.ly, c1.lz)
         for nu in mu:nb
@@ -284,45 +285,42 @@ Computes the 4-index Two-Electron Repulsion Integrals (ERIs): (μν|λσ).
 function compute_eri_tensor(bs::BasisSet)::Array{Float64, 4}
     nb = n_basis(bs)
     eri = zeros(Float64, nb, nb, nb, nb)
+    pairs = [(mu, nu) for mu in 1:nb for nu in mu:nb]
 
-    for mu in 1:nb
+    @threads for pair_idx in eachindex(pairs)
+        mu, nu = pairs[pair_idx]
         c1 = bs.functions[mu]
-        for nu in mu:nb
-            c2 = bs.functions[nu]
-            for lam in 1:nb
-                c3 = bs.functions[lam]
-                for sig in lam:nb
-                    c4 = bs.functions[sig]
+        c2 = bs.functions[nu]
+        for other_pair_idx in pair_idx:length(pairs)
+            lam, sig = pairs[other_pair_idx]
+            c3 = bs.functions[lam]
+            c4 = bs.functions[sig]
 
-                    val = 0.0
-                    for (p1_i, p1) in enumerate(c1.primitives)
-                        d1 = c1.coeffs[p1_i]
-                        for (p2_i, p2) in enumerate(c2.primitives)
-                            d2 = c2.coeffs[p2_i]
-                            for (p3_i, p3) in enumerate(c3.primitives)
-                                d3 = c3.coeffs[p3_i]
-                                for (p4_i, p4) in enumerate(c4.primitives)
-                                    d4 = c4.coeffs[p4_i]
-                                    val += d1 * d2 * d3 * d4 * prim_eri(p1, c1.center, p2, c2.center, p3, c3.center, p4, c4.center)
-                                end
-                            end
+            val = 0.0
+            for (p1_i, p1) in enumerate(c1.primitives)
+                d1 = c1.coeffs[p1_i]
+                for (p2_i, p2) in enumerate(c2.primitives)
+                    d2 = c2.coeffs[p2_i]
+                    for (p3_i, p3) in enumerate(c3.primitives)
+                        d3 = c3.coeffs[p3_i]
+                        for (p4_i, p4) in enumerate(c4.primitives)
+                            d4 = c4.coeffs[p4_i]
+                            val += d1 * d2 * d3 * d4 * prim_eri(p1, c1.center, p2, c2.center, p3, c3.center, p4, c4.center)
                         end
                     end
-
-                    # 8-fold Permutational symmetries of real ERIs:
-                    # (mu, nu | lam, sig) = (nu, mu | lam, sig) = (mu, nu | sig, lam) = (nu, mu | sig, lam)
-                    # = (lam, sig | mu, nu) = (sig, lam | mu, nu) = (lam, sig | nu, mu) = (sig, lam | nu, mu)
-                    eri[mu, nu, lam, sig] = val
-                    eri[nu, mu, lam, sig] = val
-                    eri[mu, nu, sig, lam] = val
-                    eri[nu, mu, sig, lam] = val
-
-                    eri[lam, sig, mu, nu] = val
-                    eri[sig, lam, mu, nu] = val
-                    eri[lam, sig, nu, mu] = val
-                    eri[sig, lam, nu, mu] = val
                 end
             end
+
+            # Unique pair-pair work items avoid concurrent writes through ERI symmetry.
+            eri[mu, nu, lam, sig] = val
+            eri[nu, mu, lam, sig] = val
+            eri[mu, nu, sig, lam] = val
+            eri[nu, mu, sig, lam] = val
+
+            eri[lam, sig, mu, nu] = val
+            eri[sig, lam, mu, nu] = val
+            eri[lam, sig, nu, mu] = val
+            eri[sig, lam, nu, mu] = val
         end
     end
     return eri
