@@ -60,6 +60,7 @@ include("semi_empirical/nddo/parameters.jl")
 include("semi_empirical/nddo/base.jl")
 include("semi_empirical/nddo/scf.jl")
 include("semi_empirical/dftb_xtb.jl")
+include("periodic/tight_binding.jl")
 
 using .SemiEmpiricalBase
 using .SlaterOrbitals
@@ -71,6 +72,7 @@ using .NDDOParameters
 using .NDDOBase
 using .NDDOSCF
 using .TightBinding
+using .PeriodicTightBinding
 
 # 5. Ab Initio Quantum Chemistry Engine (Hartree-Fock)
 include("ab_initio/basis.jl")
@@ -104,9 +106,11 @@ using .CoupledCluster
 # 8. Excited State Calculations (CIS Singlets & Triplets, Gradients)
 include("excited_states/cis.jl")
 include("excited_states/excited_gradients.jl")
+include("excited_states/tda.jl")
 
 using .CISExcitedStates
 using .ExcitedGradients
+using .TimeDependentMethods
 
 # 9. Transition State Calculations (NEB, CI-NEB, P-RFO, IRC)
 include("transition_states/neb.jl")
@@ -203,11 +207,19 @@ export AbstractSemiEmpiricalMethod, SCFOptions, SCFResult,
        TightBindingModel, solve_tight_binding, DFTBResult,
        D3Correction, calc_d3_dispersion
 
+# Periodic solid-state tight-binding prototype
+export CrystalStructure, PeriodicTBResult, BandStructureResult,
+       solve_periodic_tb, periodic_band_structure
+
 # Ab Initio Hartree-Fock
-export BasisSet, build_basis, n_basis,
+export BasisSet, PrimitiveGaussian, ContractedGaussian,
+       EffectiveCorePotential, ECPComponent,
+       build_basis, validate_basis, n_basis, available_basis_sets,
+       build_ecp, ecp_potential_value, ecp_core_electrons,
+       effective_nuclear_charges, apply_ecp_matrix,
        compute_overlap, compute_kinetic, compute_nuclear_attraction,
        compute_core_hamiltonian, compute_eri_tensor,
-       HFResult, solve_hf, print_hf_summary
+       HFResult, solve_hf, solve_uhf, print_hf_summary
 
 # Density Functional Theory (DFT)
 export XCFunctional, evaluate_xc,
@@ -233,7 +245,7 @@ export AbstractDevice, CPUDevice, CUDADevice, ROCmDevice, OneAPIDevice,
        device_name, is_gpu, vendor, detect_available_devices,
        get_default_device, set_default_device!,
        solve_scf_gpu, evaluate_mm_gpu, run_md_gpu,
-       solve_hf_gpu, solve_dft_gpu, solve_mp2_gpu,
+       solve_hf_gpu, solve_uhf_gpu, solve_dft_gpu, solve_mp2_gpu,
        solve_cisd_gpu, solve_ccsd_gpu, solve_cis_gpu, calc_nmr_gpu,
        gpu_distance_matrix, gpu_fock_coulomb_exchange,
        gpu_dft_density_and_xc, gpu_transform_eri_ao_to_mo,
@@ -244,6 +256,7 @@ export AbstractDevice, CPUDevice, CUDADevice, ROCmDevice, OneAPIDevice,
 # Excited States
 export ExcitedState, CISResult, solve_cis, compute_excited_state_dipole,
        calc_excited_state_energy_and_gradient, optimize_excited_state!
+export TDExcitedState, TDResult, solve_tdhf, solve_tddft, xc_density_kernel
 
 # Transition States
 export NEBPath, run_neb, NEBResult,
@@ -257,8 +270,10 @@ export Solvent, SolvationResult, calc_solvation_energy,
 # Analysis, Spectroscopy, Reactivity & Conformers
 export mulliken_analysis, lowdin_analysis, PopulationResult,
        calc_molecular_dipole, DipoleResult,
+       calc_uv_vis, uv_vis_transitions,
        calc_uv_vis_cis, generate_uv_vis_spectrum,
        calc_vibrational_frequencies, generate_ir_spectrum,
+       RamanMode, calc_raman_modes, generate_raman_spectrum,
        UVVisTransition, VibrationalMode, project_translations_and_rotations!,
        calc_thermochemistry, ThermochemistryResult, print_thermo_summary,
        ReactivityIndices, FukuiIndices, calc_reactivity_indices,

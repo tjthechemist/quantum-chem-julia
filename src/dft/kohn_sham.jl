@@ -37,16 +37,19 @@ struct DFTResult
     mo_coefficients::Matrix{Float64}
     density_matrix::Matrix{Float64}
     basis::BasisSet
+    effective_nuclear_charges::Vector{Float64}
     n_occ::Int
     n_virt::Int
 end
 
 """
     solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String="sto-3g",
+              basis_set=nothing, ecp_name=nothing,
               device::AbstractDevice=get_default_device(),
               options::SCFOptions=SCFOptions())::DFTResult
 Executes Kohn-Sham Density Functional Theory calculation with multi-vendor GPU acceleration
-on NVIDIA (CUDA), AMD (ROCm), and Intel (oneAPI) GPUs.
+on NVIDIA (CUDA), AMD (ROCm), and Intel (oneAPI) GPUs. A caller-supplied `BasisSet`
+overrides `basis_name`; `ecp_name="qcm-prototype"` opts into the experimental ECP model.
 Supported functionals:
   - :b3lyp (Hybrid Becke 3-parameter Lee-Yang-Parr, 20% exact exchange)
   - :pbe0  (Hybrid PBE, 25% exact exchange)
@@ -55,15 +58,31 @@ Supported functionals:
   - :lda   (Local Density Approximation SVWN)
 """
 function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String="sto-3g",
+                   basis_set::Union{Nothing, BasisSet}=nothing,
+                   ecp_name::Union{Nothing, String}=nothing,
                    device::AbstractDevice=get_default_device(),
                    options::SCFOptions=SCFOptions())::DFTResult
     nat = n_atoms(mol)
-    bs = build_basis(mol, basis_name)
+    bs = basis_set === nothing ? build_basis(mol, basis_name) :
+         validate_basis(mol, basis_set)
     nb = n_basis(bs)
+    ecps = ecp_name === nothing ? Dict{Int, EffectiveCorePotential}() :
+           build_ecp(mol; name=ecp_name)
+    nuclear_charges = effective_nuclear_charges(mol, ecps)
 
     # 1. Total electrons and number of occupied orbitals
-    total_electrons = sum(mol.atoms[i].atomic_number for i in 1:nat) - mol.total_charge
+    total_electrons = sum(nuclear_charges) - mol.total_charge
+    isinteger(total_electrons) ||
+        throw(ArgumentError("Effective electron count must be an integer."))
+    total_electrons = Int(round(total_electrons))
+    mol.multiplicity == 1 ||
+        throw(ArgumentError("This DFT solver is restricted closed-shell only; unrestricted DFT is not implemented."))
+    iseven(total_electrons) ||
+        throw(ArgumentError("Closed-shell DFT requires an even effective electron count."))
+    total_electrons >= 0 ||
+        throw(ArgumentError("Molecular charge gives a negative electron count."))
     n_occ = div(total_electrons, 2)
+    n_occ <= nb || throw(ArgumentError("Basis set has $nb functions, fewer than the $n_occ occupied orbitals required."))
     n_virt = nb - n_occ
 
     # 2. Select functional
@@ -84,16 +103,19 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
     # 3. 1-electron integrals and nuclear repulsion
     S = compute_overlap(bs)
     T = compute_kinetic(bs)
-    V = compute_nuclear_attraction(bs, mol)
+    V = compute_nuclear_attraction(bs, mol; nuclear_charges=nuclear_charges)
     H_core = T .+ V
+    if ecp_name !== nothing
+        H_core .+= apply_ecp_matrix(mol, bs; name=ecp_name)
+    end
     eri = compute_eri_tensor(bs)
 
     coords_bohr = [mol.atoms[i].coords .* BasisSets.ANGSTROM_TO_BOHR for i in 1:nat]
     e_nuc = 0.0
     for a in 1:nat
-        za = mol.atoms[a].atomic_number
+        za = nuclear_charges[a]
         for b in (a+1):nat
-            zb = mol.atoms[b].atomic_number
+            zb = nuclear_charges[b]
             rab = MolMath.distance(coords_bohr[a], coords_bohr[b])
             e_nuc += (za * zb) / max(rab, 1e-4)
         end
@@ -138,7 +160,7 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
         @threads for g in 1:n_pts
             rg = grid.points[g]
             for mu in 1:nb
-                basis_values[g, mu] = BasisSets.evaluate_basis(bs.functions[mu], rg)
+                basis_values[g, mu] = DFTGrid.eval_basis_function(bs.functions[mu], rg.coords)
             end
         end
 
@@ -152,7 +174,7 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
         eri_j_dev = to_device(eri_j_mat, device)
         eri_k_dev = to_device(eri_k_mat, device)
         basis_values_dev = to_device(basis_values, device)
-        weights_dev = to_device(grid.weights, device)
+        weights_dev = to_device([point.weight for point in grid.points], device)
         F_ks_dev = copy(H_core_dev)
         C_dev = to_device(C, device)
 
@@ -214,7 +236,8 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
         tot_ev = tot_hartree * HARTREE_TO_EV
 
         return DFTResult(func.name, converged, cycles, tot_hartree, tot_ev,
-                         E_xc, E_coulomb, E_exact_x, e_nuc, eps, C_final, P_final, bs, n_occ, n_virt)
+                         E_xc, E_coulomb, E_exact_x, e_nuc, eps, C_final, P_final, bs,
+                         nuclear_charges, n_occ, n_virt)
 
     else
         # Standard Host CPU Execution
@@ -297,7 +320,8 @@ function solve_dft(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String=
         tot_ev = tot_hartree * HARTREE_TO_EV
 
         return DFTResult(func.name, converged, cycles, tot_hartree, tot_ev,
-                         E_xc, E_coulomb, E_exact_x, e_nuc, eps, C, P, bs, n_occ, n_virt)
+                         E_xc, E_coulomb, E_exact_x, e_nuc, eps, C, P, bs,
+                         nuclear_charges, n_occ, n_virt)
     end
 end
 

@@ -34,6 +34,8 @@ Hamiltonian matrix with optional GPU acceleration.
 """
 function solve_cisd(hf_res::HFResult; max_doubles::Int=50,
                     device::AbstractDevice=get_default_device())::CISDResult
+    hf_res.reference == :rhf ||
+        throw(ArgumentError("This CISD implementation requires an RHF reference; UHF post-HF correlation is not implemented."))
     if is_gpu(device)
         @info "Accelerating CISD 4-index transformation on $(device_name(device))..."
         eri_dev = to_device(hf_res.eri_tensor, device)

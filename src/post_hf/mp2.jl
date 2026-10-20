@@ -34,6 +34,8 @@ with GPU acceleration on NVIDIA CUDA, AMD ROCm, and Intel oneAPI.
 """
 function solve_mp2(hf_res::HFResult;
                    device::AbstractDevice=get_default_device())::MP2Result
+    hf_res.reference == :rhf ||
+        throw(ArgumentError("This MP2 implementation requires an RHF reference; UHF post-HF correlation is not implemented."))
     if is_gpu(device)
         @info "Accelerating MP2 Correlation on $(device_name(device))..."
         eri_dev = to_device(hf_res.eri_tensor, device)

@@ -235,13 +235,19 @@ end
     compute_nuclear_attraction(bs::BasisSet, mol::Molecule)::Matrix{Float64}
 Evaluates the electron-nuclear attraction potential matrix V_μν.
 """
-function compute_nuclear_attraction(bs::BasisSet, mol::Molecule)::Matrix{Float64}
+function compute_nuclear_attraction(bs::BasisSet, mol::Molecule;
+                                    nuclear_charges::Union{Nothing, AbstractVector{<:Real}}=nothing)::Matrix{Float64}
     nb = n_basis(bs)
     V = zeros(Float64, nb, nb)
     nat = n_atoms(mol)
 
+    if nuclear_charges !== nothing && length(nuclear_charges) != nat
+        throw(ArgumentError("nuclear_charges must contain one value per atom."))
+    end
     coords_bohr = [mol.atoms[i].coords .* BasisSets.ANGSTROM_TO_BOHR for i in 1:nat]
-    z_vals = [Float64(mol.atoms[i].atomic_number) for i in 1:nat]
+    z_vals = nuclear_charges === nothing ?
+        [Float64(mol.atoms[i].atomic_number) for i in 1:nat] :
+        Float64.(nuclear_charges)
 
     @threads for mu in 1:nb
         c1 = bs.functions[mu]

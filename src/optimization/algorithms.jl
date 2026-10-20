@@ -13,6 +13,8 @@ using ..LineSearch
 
 export OptimizationResult, optimize_geometry!
 
+const OPTIMIZATION_METHODS = (:sd, :cg, :lbfgs)
+
 struct OptimizationResult
     converged::Bool
     iterations::Int
@@ -32,10 +34,51 @@ Conjugate Gradient (:cg), or L-BFGS (:lbfgs).
 function optimize_geometry!(mol::Molecule, ff::AbstractForceField;
                             method::Symbol=:lbfgs, max_steps::Int=500,
                             grad_tol::Float64=1e-3, verbose::Bool=false)::OptimizationResult
+    eval_fg = function ()
+        ec, gmat = evaluate_mm(ff, mol; calc_grad=true)
+        return total_energy(ec), vec(gmat)
+    end
+    eval_f = () -> energy(ff, mol)
+    return _optimize_geometry!(mol, eval_fg, eval_f; method=method,
+                               max_steps=max_steps, grad_tol=grad_tol,
+                               verbose=verbose, energy_unit="kcal/mol")
+end
+
+"""
+    optimize_geometry!(mol, energy_function, gradient_function; kwargs...)
+
+Optimize a molecule using callbacks that accept the molecule and return an energy
+or a 3×N gradient, respectively. This supports finite-difference gradients for
+electronic-structure methods without duplicating the optimization algorithms.
+"""
+function optimize_geometry!(mol::Molecule, energy_function::Function,
+                            gradient_function::Function;
+                            method::Symbol=:lbfgs, max_steps::Int=500,
+                            grad_tol::Float64=1e-4, verbose::Bool=false)::OptimizationResult
+    eval_fg = function ()
+        energy_value = Float64(energy_function(mol))
+        gradient_matrix = gradient_function(mol)
+        size(gradient_matrix) == (3, n_atoms(mol)) ||
+            throw(DimensionMismatch("Geometry gradient must have size (3, n_atoms(mol))."))
+        return energy_value, vec(Float64.(gradient_matrix))
+    end
+    eval_f = () -> Float64(energy_function(mol))
+    return _optimize_geometry!(mol, eval_fg, eval_f; method=method,
+                               max_steps=max_steps, grad_tol=grad_tol,
+                               verbose=verbose, energy_unit="Hartree")
+end
+
+function _optimize_geometry!(mol::Molecule, eval_fg::Function, eval_f::Function;
+                             method::Symbol, max_steps::Int, grad_tol::Float64,
+                             verbose::Bool, energy_unit::String)::OptimizationResult
+    method in OPTIMIZATION_METHODS ||
+        throw(ArgumentError("Unsupported optimization method '$method'. Use :sd, :cg, or :lbfgs."))
+    max_steps > 0 || throw(ArgumentError("max_steps must be positive."))
+    grad_tol > 0.0 || throw(ArgumentError("grad_tol must be positive."))
     nat = n_atoms(mol)
+    nat > 0 || throw(ArgumentError("Cannot optimize a molecule with no atoms."))
     n_dim = 3 * nat
 
-    # Helper to pack and unpack coordinates into a 1D vector
     function pack_coords()::Vector{Float64}
         mat = coordinates_matrix(mol)
         return vec(mat)
@@ -46,20 +89,18 @@ function optimize_geometry!(mol::Molecule, ff::AbstractForceField;
         set_coordinates!(mol, mat)
     end
 
-    # Objective function and gradient wrapper
-    function eval_fg(x::Vector{Float64})
+    function evaluate_fg(x::Vector{Float64})
         unpack_coords!(x)
-        ec, gmat = evaluate_mm(ff, mol; calc_grad=true)
-        return total_energy(ec), vec(gmat)
+        return eval_fg()
     end
 
-    function eval_f(x::Vector{Float64})
+    function evaluate_f(x::Vector{Float64})
         unpack_coords!(x)
-        return energy(ff, mol)
+        return eval_f()
     end
 
     x = pack_coords()
-    f_val, g = eval_fg(x)
+    f_val, g = evaluate_fg(x)
     init_energy = f_val
 
     # Memory vectors for L-BFGS (m = 6 history)
@@ -85,7 +126,8 @@ function optimize_geometry!(mol::Molecule, ff::AbstractForceField;
         rms_g = sqrt(sum(g.^2) / n_dim)
 
         if verbose && (step % 20 == 1 || step == max_steps)
-            @printf("  Step %4d | Energy = %14.6f kcal/mol | Max Grad = %10.5f\n", step, f_val, max_g)
+            @printf("  Step %4d | Energy = %14.8f %s | Max Grad = %10.5g\n",
+                    step, f_val, energy_unit, max_g)
         end
 
         if max_g < grad_tol || rms_g < 0.5 * grad_tol
@@ -138,12 +180,12 @@ function optimize_geometry!(mol::Molecule, ff::AbstractForceField;
         end
 
         # Line search for step length
-        step_len = LineSearch.backtracking_line_search(eval_f, g, x, p; alpha_init=1.0, c1=1e-4)
+        step_len = LineSearch.backtracking_line_search(evaluate_f, g, x, p; alpha_init=1.0, c1=1e-4)
 
         # Update position
         s = step_len .* p
         x_new = x .+ s
-        f_new, g_new = eval_fg(x_new)
+        f_new, g_new = evaluate_fg(x_new)
         y = g_new .- g
 
         # Store history for L-BFGS
@@ -166,9 +208,11 @@ function optimize_geometry!(mol::Molecule, ff::AbstractForceField;
         g = g_new
     end
 
+    max_g = maximum(abs.(g))
+    rms_g = sqrt(sum(g.^2) / n_dim)
+    converged |= max_g < grad_tol || rms_g < 0.5 * grad_tol
     unpack_coords!(x)
     return OptimizationResult(converged, iter, init_energy, f_val, max_g, rms_g)
 end
 
 end # module OptimizationAlgorithms
-

@@ -30,7 +30,7 @@ using ..GPUKernels
 using ..NMRSpectroscopy
 
 export solve_scf_gpu, evaluate_mm_gpu, run_md_gpu,
-       solve_hf_gpu, solve_dft_gpu, solve_mp2_gpu,
+       solve_hf_gpu, solve_uhf_gpu, solve_dft_gpu, solve_mp2_gpu,
        solve_cisd_gpu, solve_ccsd_gpu, solve_cis_gpu,
        calc_nmr_gpu
 
@@ -142,9 +142,21 @@ end
 Dispatches Ab Initio Hartree-Fock calculation to GPU device.
 """
 function solve_hf_gpu(mol::Molecule; basis_name::String="sto-3g",
+                      basis_set::Union{Nothing, BasisSet}=nothing,
+                      ecp_name::Union{Nothing, String}=nothing,
                       device::AbstractDevice=get_default_device(),
                       options::SCFOptions=SCFOptions())::HFResult
-    return solve_hf(mol; basis_name=basis_name, device=device, options=options)
+    return solve_hf(mol; basis_name=basis_name, basis_set=basis_set, ecp_name=ecp_name,
+                    device=device, options=options)
+end
+
+function solve_uhf_gpu(mol::Molecule; basis_name::String="sto-3g",
+                       basis_set::Union{Nothing, BasisSet}=nothing,
+                       ecp_name::Union{Nothing, String}=nothing,
+                       device::AbstractDevice=get_default_device(),
+                       options::SCFOptions=SCFOptions())::HFResult
+    return solve_uhf(mol; basis_name=basis_name, basis_set=basis_set, ecp_name=ecp_name,
+                     device=device, options=options)
 end
 
 """
@@ -154,9 +166,13 @@ end
 Dispatches Kohn-Sham DFT calculation to GPU device.
 """
 function solve_dft_gpu(mol::Molecule; functional::Symbol=:b3lyp, basis_name::String="sto-3g",
+                       basis_set::Union{Nothing, BasisSet}=nothing,
+                       ecp_name::Union{Nothing, String}=nothing,
                        device::AbstractDevice=get_default_device(),
                        options::SCFOptions=SCFOptions())::DFTResult
-    return solve_dft(mol; functional=functional, basis_name=basis_name, device=device, options=options)
+    return solve_dft(mol; functional=functional, basis_name=basis_name, basis_set=basis_set,
+                     ecp_name=ecp_name,
+                     device=device, options=options)
 end
 
 """

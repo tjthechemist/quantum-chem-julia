@@ -38,6 +38,8 @@ accelerated on NVIDIA, AMD, or Intel GPUs.
 function solve_ccsd(hf_res::HFResult; max_cycles::Int=40, tol::Float64=1e-6,
                     compute_triples::Bool=true,
                     device::AbstractDevice=get_default_device())::CCSDResult
+    hf_res.reference == :rhf ||
+        throw(ArgumentError("This CCSD implementation requires an RHF reference; UHF post-HF correlation is not implemented."))
     if is_gpu(device)
         @info "Accelerating CCSD 4-index transformation on $(device_name(device))..."
         eri_dev = to_device(hf_res.eri_tensor, device)

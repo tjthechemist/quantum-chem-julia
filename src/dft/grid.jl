@@ -13,7 +13,7 @@ using ..BasisSets
 using ..DFTFunctionals
 
 export MolecularGrid, build_molecular_grid, evaluate_density,
-       integrate_xc_matrix_and_energy
+       eval_basis_function, integrate_xc_matrix_and_energy
 
 struct GridPoint
     coords::Vector{Float64} # [x, y, z] in bohr

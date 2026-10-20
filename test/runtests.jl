@@ -9,6 +9,12 @@ using LinearAlgebra
 include("../src/QuantumChemMM.jl")
 using .QuantumChemMM
 
+struct TestAccelerator <: QuantumChemMM.AbstractDevice end
+QuantumChemMM.GPUInterface.is_gpu(::TestAccelerator) = true
+QuantumChemMM.GPUInterface.device_name(::TestAccelerator) = "Test accelerator"
+QuantumChemMM.GPUInterface.to_device(x::AbstractArray, ::TestAccelerator) = x
+QuantumChemMM.GPUInterface.synchronize_device(::TestAccelerator) = nothing
+
 @testset "QuantumChemMM Full Comprehensive Test Suite" begin
 
     @testset "1. Core & Periodic Table Elements" begin
@@ -99,6 +105,118 @@ H  0.0 -1.3 -0.5
         @test res.final_energy < e_init
     end
 
+    @testset "5b. Quantum Geometry Optimization" begin
+        h2_xyz = """2
+H2
+H  0.0  0.0  0.0
+H  0.0  0.0  0.95
+"""
+        for method in (:am1, :hf, :pbe)
+            mol = parse_xyz(h2_xyz; name="H2 optimization")
+            initial = calculate(mol, method; basis="sto-3g",
+                                device=CPUDevice())
+            result = optimize_geometry!(mol, method; basis="sto-3g",
+                                        device=CPUDevice(), max_steps=12,
+                                        grad_tol=1e-3)
+            final = calculate(mol, method; basis="sto-3g",
+                              device=CPUDevice())
+
+            @test result.initial_energy ≈ initial.total_energy_hartree atol=1e-8
+            @test result.final_energy < result.initial_energy
+            @test result.final_energy ≈ final.total_energy_hartree atol=1e-8
+            @test all(isfinite, coordinates_matrix(mol))
+        end
+
+        mol = parse_xyz(h2_xyz; name="H2 optimization")
+        @test_throws ArgumentError optimize_geometry!(mol, :mp2)
+        @test_throws ArgumentError optimize_geometry!(mol, :hf;
+                                                       finite_difference_step=0.0)
+    end
+
+    @testset "5c. IR and Raman Spectroscopy" begin
+        water_xyz = """3
+Water
+O  0.0000  0.0000  0.0000
+H  0.9572  0.0000  0.0000
+H -0.2390  0.9270  0.0000
+"""
+        mol = parse_xyz(water_xyz; name="Water spectroscopy")
+        build_bonds!(mol)
+        ff = parameterize_uff(mol)
+
+        ir_modes = calc_vibrational_frequencies(mol, ff)
+        @test length(ir_modes) == 3 * n_atoms(mol)
+        ir_shift, ir_intensity = generate_ir_spectrum(ir_modes)
+        @test length(ir_shift) == length(ir_intensity)
+        @test all(isfinite, ir_intensity)
+
+        raman_modes = calc_raman_modes(mol, ff)
+        @test length(raman_modes) == length(ir_modes)
+        @test all(mode -> isfinite(mode.raman_activity) &&
+                          isfinite(mode.depolarization_ratio), raman_modes)
+        @test all(mode -> 0.0 <= mode.depolarization_ratio <= 0.75,
+                  raman_modes)
+        raman_shift, raman_intensity = generate_raman_spectrum(raman_modes)
+        @test length(raman_shift) == length(raman_intensity)
+        @test all(isfinite, raman_intensity)
+        @test maximum(raman_intensity) > 0.0
+        @test_throws ArgumentError generate_raman_spectrum(raman_modes;
+                                                           laser_wavelength_nm=0.0)
+
+        h2_xyz = """2
+H2 QM spectroscopy
+H  0.0  0.0  0.0
+H  0.0  0.0  0.7414
+"""
+        h2 = parse_xyz(h2_xyz; name="H2 QM spectroscopy")
+        qm_modes = calc_vibrational_frequencies(h2, :am1; delta=0.01,
+                                                ir_delta=0.01,
+                                                device=CPUDevice())
+        @test length(qm_modes) == 3 * n_atoms(h2)
+        @test all(mode -> isfinite(mode.frequency_cm1) &&
+                          isfinite(mode.ir_intensity_km_mol), qm_modes)
+        for method in (:hf, :pbe)
+            electronic_modes = calc_vibrational_frequencies(
+                h2, method; delta=0.01, ir_delta=0.01, device=CPUDevice())
+            @test length(electronic_modes) == length(qm_modes)
+            @test all(mode -> isfinite(mode.frequency_cm1) &&
+                              isfinite(mode.ir_intensity_km_mol),
+                      electronic_modes)
+        end
+        qm_raman_modes = calc_raman_modes(h2, :am1; delta=0.01,
+                                          ir_delta=0.01,
+                                          device=CPUDevice())
+        @test length(qm_raman_modes) == length(qm_modes)
+        @test all(mode -> isfinite(mode.raman_activity), qm_raman_modes)
+        @test maximum(mode.raman_activity for mode in qm_raman_modes) > 0.0
+        dft_raman_modes = calc_raman_modes(h2, :pbe; delta=0.01,
+                                           ir_delta=0.01, device=CPUDevice())
+        @test length(dft_raman_modes) == length(qm_modes)
+        @test all(mode -> isfinite(mode.raman_activity), dft_raman_modes)
+    end
+
+    @testset "5d. UV-Visible Spectroscopy" begin
+        h2_xyz = """2
+H2 UV-Vis
+H  0.0  0.0  0.0
+H  0.0  0.0  0.7414
+"""
+        mol = parse_xyz(h2_xyz; name="H2 UV-Vis")
+        for method in (:cndo2, :hf, :pbe)
+            transitions = calc_uv_vis(mol, method; n_states=2,
+                                      device=CPUDevice())
+            @test !isempty(transitions)
+            @test all(tr -> tr.energy_ev > 0.0 && tr.wavelength_nm > 0.0 &&
+                            isfinite(tr.oscillator_strength), transitions)
+            wavelength, intensity =
+                generate_uv_vis_spectrum(transitions; n_points=80)
+            @test length(wavelength) == 80
+            @test all(isfinite, intensity)
+        end
+        @test_throws ArgumentError calc_uv_vis(mol, :am1)
+        @test_throws ArgumentError calc_uv_vis(mol, :hf; n_states=0)
+    end
+
     @testset "6. Simple Hückel Theory (HMO) on Benzene" begin
         benzene_xyz = """12
 Benzene
@@ -141,6 +259,43 @@ H    0.000000   -0.938000   -1.181000
         @test isfinite(am1_res.total_energy_ev)
     end
 
+    @testset "7b. Periodic tight-binding bands and DOS" begin
+        graphene = CrystalStructure(
+            [2.46 1.23 0.0;
+             0.0  2.13 0.0;
+             0.0  0.0 20.0],
+            [0.0 1/3;
+             0.0 1/3;
+             0.0 0.0],
+            [:C, :C]; name="Graphene prototype",
+            periodic_dimensions=[1, 2])
+
+        result = solve_periodic_tb(graphene; electrons_per_cell=2,
+                                   kmesh=(6, 6, 1), hopping_ev=-2.7,
+                                   cutoff_angstrom=1.6, dos_points=120)
+        @test size(result.bands_ev) == (36, 2)
+        @test result.electrons_per_cell == 2
+        @test isfinite(result.fermi_level_ev)
+        @test isfinite(result.total_energy_ev_per_cell)
+        @test result.band_gap_ev < 0.1
+        @test length(result.dos_energies_ev) == 120
+        @test all(isfinite, result.dos_states_per_ev_per_cell)
+
+        band_path = periodic_band_structure(
+            graphene, [[0.0, 0.0, 0.0], [1/3, 1/3, 0.0], [0.5, 0.0, 0.0]];
+            labels=["Γ", "K", "M"], points_per_segment=8,
+            hopping_ev=-2.7, cutoff_angstrom=1.6)
+        @test size(band_path.bands_ev) == (17, 2)
+        @test band_path.high_symmetry_indices == [1, 9, 17]
+        @test issorted(band_path.path_distance_per_angstrom)
+        @test band_path.labels == ["Γ", "K", "M"]
+
+        @test_throws ArgumentError solve_periodic_tb(graphene;
+            electrons_per_cell=5, kmesh=(2, 2, 1), cutoff_angstrom=1.6)
+        @test_throws ArgumentError solve_periodic_tb(graphene;
+            electrons_per_cell=2, kmesh=(2, 2, 2), cutoff_angstrom=1.6)
+    end
+
     @testset "8. Ab Initio Hartree-Fock (RHF)" begin
         h2_xyz = """2
 H2
@@ -159,6 +314,117 @@ H  0.0  0.0  0.7414
         hf_res = solve_hf(mol; basis_name="sto-3g")
         @test hf_res.converged
         @test isapprox(hf_res.total_energy_hartree, -1.117, atol=0.05)
+        @test hf_res.effective_nuclear_charges == [1.0, 1.0]
+
+        iodine = Molecule("Iodine")
+        push!(iodine.atoms, Atom(1, :I, [0.0, 0.0, 0.0]))
+        iodine_ecps = build_ecp(iodine; name="qcm-prototype")
+        @test ecp_core_electrons(iodine_ecps) == 46
+        @test effective_nuclear_charges(iodine, iodine_ecps) == [7.0]
+
+        ecp_basis = BasisSet("test", [
+            ContractedGaussian(1, [0.0, 0.0, 0.0], 0, 0, 0,
+                               [PrimitiveGaussian(1.0, 1.0)], [1.0])
+        ])
+        ecp_matrix = apply_ecp_matrix(iodine, ecp_basis; name="qcm-prototype", device=CPUDevice())
+        @test size(ecp_matrix) == (1, 1)
+        @test isfinite(ecp_matrix[1, 1])
+
+        iodine_dimer = Molecule("Iodine dimer")
+        push!(iodine_dimer.atoms, Atom(1, :I, [0.0, 0.0, 0.0]))
+        push!(iodine_dimer.atoms, Atom(2, :I, [0.0, 0.0, 2.67]))
+        basis_functions = ContractedGaussian[]
+        for atom in iodine_dimer.atoms
+            center = atom.coords .* QuantumChemMM.BasisSets.ANGSTROM_TO_BOHR
+            for (lx, ly, lz) in ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1))
+                alpha = 0.5
+                norm = QuantumChemMM.BasisSets.gaussian_norm(alpha, lx, ly, lz)
+                primitive = PrimitiveGaussian(alpha, norm)
+                push!(basis_functions, ContractedGaussian(atom.index, center, lx, ly, lz,
+                                                          [primitive], [1.0]))
+            end
+        end
+        iodine_basis = BasisSet("test-valence-basis", basis_functions)
+        hf_ecp_cpu = solve_hf(iodine_dimer; basis_set=iodine_basis, ecp_name="qcm-prototype",
+                              device=CPUDevice(), options=SCFOptions(max_cycles=2))
+        hf_ecp_accel = solve_hf(iodine_dimer; basis_set=iodine_basis, ecp_name="qcm-prototype",
+                                device=TestAccelerator(), options=SCFOptions(max_cycles=2))
+        @test hf_ecp_cpu.effective_nuclear_charges == [7.0, 7.0]
+        @test hf_ecp_cpu.n_occ == 7
+        @test hf_ecp_accel.core_hamiltonian ≈ hf_ecp_cpu.core_hamiltonian
+        unified_ecp = calculate(iodine_dimer, :hf; basis_set=iodine_basis,
+                                ecp_name="qcm-prototype", device=CPUDevice(),
+                                options=SCFOptions(max_cycles=2))
+        @test unified_ecp.raw_result.effective_nuclear_charges == [7.0, 7.0]
+
+        dft_ecp_cpu = solve_dft(iodine_dimer; functional=:lda, basis_set=iodine_basis,
+                                ecp_name="qcm-prototype", device=CPUDevice(),
+                                options=SCFOptions(max_cycles=2))
+        dft_ecp_accel = solve_dft(iodine_dimer; functional=:lda, basis_set=iodine_basis,
+                                  ecp_name="qcm-prototype", device=TestAccelerator(),
+                                  options=SCFOptions(max_cycles=2))
+        @test dft_ecp_cpu.effective_nuclear_charges == [7.0, 7.0]
+        @test dft_ecp_accel.effective_nuclear_charges == dft_ecp_cpu.effective_nuclear_charges
+        @test dft_ecp_accel.nuclear_repulsion_hartree == dft_ecp_cpu.nuclear_repulsion_hartree
+    end
+
+    @testset "8a. RHF/UHF charge and spin occupations" begin
+        h2plus = parse_xyz("""2
+H2+
+H 0.0 0.0 0.0
+H 0.0 0.0 0.74
+"""; name="H2+")
+        h2plus.total_charge = 1
+        h2plus.multiplicity = 2
+        doublet = solve_uhf(h2plus; device=CPUDevice())
+        @test doublet.converged
+        @test doublet.reference == :uhf
+        @test (doublet.n_alpha, doublet.n_beta) == (1, 0)
+        @test tr(doublet.alpha_density_matrix * doublet.overlap_matrix) ≈ 1.0 atol=1e-8
+        @test tr(doublet.beta_density_matrix * doublet.overlap_matrix) ≈ 0.0 atol=1e-8
+        @test_throws ArgumentError solve_hf(h2plus; device=CPUDevice())
+        @test_throws ArgumentError solve_dft(h2plus; functional=:lda, device=CPUDevice())
+        @test_throws ArgumentError solve_mp2(doublet; device=CPUDevice())
+
+        h2triplet = parse_xyz("""2
+H2 triplet
+H 0.0 0.0 0.0
+H 0.0 0.0 0.74
+"""; name="H2 triplet")
+        h2triplet.multiplicity = 3
+        triplet = solve_uhf(h2triplet; device=CPUDevice())
+        @test triplet.converged
+        @test (triplet.n_alpha, triplet.n_beta) == (2, 0)
+        @test tr(triplet.density_matrix * triplet.overlap_matrix) ≈ 2.0 atol=1e-8
+        @test_throws ArgumentError solve_dft(h2triplet; functional=:lda, device=CPUDevice())
+
+        oxygen = Molecule("O triplet")
+        push!(oxygen.atoms, Atom(1, :O, [0.0, 0.0, 0.0]))
+        oxygen.multiplicity = 3
+        oxygen_triplet = solve_uhf(oxygen; device=CPUDevice())
+        @test oxygen_triplet.converged
+        @test (oxygen_triplet.n_alpha, oxygen_triplet.n_beta) == (5, 3)
+        @test tr(oxygen_triplet.alpha_density_matrix * oxygen_triplet.overlap_matrix) ≈ 5.0 atol=1e-8
+        @test tr(oxygen_triplet.beta_density_matrix * oxygen_triplet.overlap_matrix) ≈ 3.0 atol=1e-8
+
+        h3plus = parse_xyz("""3
+H3+
+H 0.0 0.0 0.0
+H 1.0 0.0 0.0
+H 0.5 0.8660254 0.0
+"""; name="H3+")
+        h3plus.total_charge = 1
+        closed_shell_ion = solve_hf(h3plus; device=CPUDevice())
+        @test closed_shell_ion.reference == :rhf
+        @test closed_shell_ion.n_alpha == closed_shell_ion.n_beta == 1
+
+        unified_doublet = calculate(h2plus, :uhf; device=CPUDevice())
+        @test unified_doublet.raw_result.n_alpha == 1
+        @test unified_doublet.raw_result.n_beta == 0
+        accelerator_doublet = solve_uhf(h2plus; device=TestAccelerator())
+        @test accelerator_doublet.total_energy_hartree ≈ doublet.total_energy_hartree atol=1e-8
+        h2plus.multiplicity = 1
+        @test_throws ArgumentError solve_uhf(h2plus; device=CPUDevice())
     end
 
     @testset "9. Density Functional Theory (DFT: B3LYP & PBE)" begin
@@ -177,6 +443,52 @@ H  0.0  0.0  0.7414
         pbe_res = solve_dft(mol; functional=:pbe, basis_name="sto-3g")
         @test pbe_res.converged
         @test isfinite(pbe_res.total_energy_hartree)
+    end
+
+    @testset "9b. TDA-TDHF and adiabatic TDA-TDDFT" begin
+        h2_xyz = """2
+H2
+H  0.0  0.0  0.0
+H  0.0  0.0  0.7414
+"""
+        mol = parse_xyz(h2_xyz; name="H2")
+
+        tdhf = calculate(mol, :tdhf; basis="sto-3g", device=CPUDevice())
+        @test tdhf.method == :tdhf
+        @test tdhf.raw_result isa TDResult
+        @test !isempty(tdhf.raw_result.singlets)
+        @test !isempty(tdhf.raw_result.triplets)
+        @test all(state -> state.excitation_energy_ev > 0.0,
+                  tdhf.raw_result.singlets)
+        @test all(state -> isfinite(state.oscillator_strength),
+                  tdhf.raw_result.singlets)
+        tdhf_accelerator = calculate(mol, :tdhf; basis="sto-3g",
+                                     calc_triplets=false, n_states=1,
+                                     device=TestAccelerator())
+        @test tdhf_accelerator.raw_result.singlets[1].excitation_energy_ev ≈
+              tdhf.raw_result.singlets[1].excitation_energy_ev atol=1e-8
+
+        tddft = calculate(mol, :tddft; functional=:pbe, n_states=1,
+                          device=CPUDevice())
+        @test tddft.method == :tddft
+        @test tddft.raw_result.functional == "pbe"
+        @test length(tddft.raw_result.singlets) == 1
+        @test isempty(tddft.raw_result.triplets)
+        @test tddft.raw_result.singlets[1].excitation_energy_ev > 0.0
+        tddft_accelerator = calculate(mol, :tddft; functional=:pbe,
+                                      n_states=1, device=TestAccelerator())
+        @test tddft_accelerator.raw_result.singlets[1].excitation_energy_ev ≈
+              tddft.raw_result.singlets[1].excitation_energy_ev atol=1e-8
+
+        tda = calculate(mol, :tda; functional=:lda, n_states=1,
+                        device=CPUDevice())
+        @test tda.method == :tddft
+        @test tda.raw_result.functional == "lda"
+        @test length(tda.raw_result.singlets) == 1
+
+        @test_throws ArgumentError calculate(mol, :tddft; functional=:pbe,
+                                             calc_triplets=true)
+        @test_throws ArgumentError calculate(mol, :tda; functional=:invalid)
     end
 
     @testset "10. Post-Ab Initio Methods (MP2, CISD, CCSD)" begin

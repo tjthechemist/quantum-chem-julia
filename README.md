@@ -18,7 +18,7 @@ Hardware acceleration is fully supported across all major vendors via Julia pack
 2. **Ab Initio Hartree-Fock**: Two-electron Fock build ($J$ and $K$ matrices) formulated as high-throughput GPU GEMV matrix-vector products.
 3. **Kohn-Sham DFT**: Quadrature grid basis evaluations $\chi_\mu(\mathbf{r}_g)$, electron density $\rho(\mathbf{r}_g)$, and exchange-correlation potential matrix $V_{xc}$ computed via GPU matrix multiplications.
 4. **Post-HF Methods (MP2, CISD, CCSD, CCSD(T))**: Four-index AO-to-MO integral transformation $( \mu\nu|\lambda\sigma ) \to ( pq|rs )$ computed using four consecutive GPU GEMMs, plus device tensor contractions for denominators and amplitude residuals.
-5. **Excited States (CIS)**: Batched transition-charge contractions and CIS Hamiltonian matrix setup on device arrays.
+5. **Excited States (CIS)**: Batched transition-charge contractions and CIS Hamiltonian matrix setup on device arrays. RHF/DFT TDA response is currently assembled on the CPU.
 6. **Molecular Mechanics & MD**: $O(N^2)$ pairwise Lennard-Jones, Coulomb electrostatics, and Velocity Verlet integration on GPU.
 
 ### 🧵 Multicore CPU Execution
@@ -47,11 +47,20 @@ Run a calculation as usual (for example, `calculate(mol, :b3lyp; device=CPUDevic
 
 ### 🔬 Ab Initio & Density Functional Theory (`src/ab_initio/`, `src/dft/`)
 - **Restricted Hartree-Fock (RHF)**: Exact Gaussian integrals (overlap, kinetic, electron-nuclear attraction, and 4D two-electron repulsion) with DIIS acceleration.
+- **Unrestricted Hartree-Fock (UHF)**: Separate alpha/beta orbitals, densities, and Fock matrices. Molecular total charge and multiplicity determine occupations; closed-shell RHF supports singlet ions, while open-shell calculations use `:uhf`. For example, set `radical.total_charge = 1` and `radical.multiplicity = 2`, then call `calculate(radical, :uhf; basis="sto-3g", device=CPUDevice())`. Both CPU and supported GPU solver paths use the same spin-resolved SCF equations. DFT remains restricted closed-shell; it reports an error for open-shell inputs rather than silently miscounting electrons.
 - **Kohn-Sham DFT**:
   - **LDA**: Slater exchange + VWN5 correlation.
   - **GGA**: PBE (Perdew-Burke-Ernzerhof) and BLYP (Becke-88 + Lee-Yang-Parr).
   - **Hybrid DFT**: B3LYP (20% exact HF exchange) and PBE0 (25% exact HF exchange).
   - Molecular numerical quadrature grid using Gauss-Legendre / Euler-Maclaurin radial and Lebedev angular grids with Becke fuzzy Voronoi cell partitioning.
+- **ECP SCF integration (prototype)**: HF and DFT accept `ecp_name="qcm-prototype"` and include the prototype effective charges, nuclear repulsion, and one-electron correction in the shared CPU/GPU SCF path. You may pass a caller-supplied `BasisSet` with `basis_set=...` when the built-in basis tables do not cover the ECP atoms:
+
+  ```julia
+  result = calculate(mol, :hf; basis_set=my_basis,
+                     ecp_name="qcm-prototype", device=CPUDevice())
+  ```
+
+  This is not a published def2 ECP implementation: the bundled coefficients and matrix model are provisional and are not suitable for quantitative production chemistry. GPU SCF transfers the assembled ECP matrix to the selected device; matrix construction itself currently runs on the CPU.
 
 ---
 
@@ -68,6 +77,19 @@ Run a calculation as usual (for example, `calculate(mol, :b3lyp; device=CPUDevic
   - Computes both **Singlet** ($S_1, S_2, \dots$) and **Triplet** ($T_1, T_2, \dots$) excited states from converged SCF determinants.
   - Transition dipole moments $\boldsymbol{\mu}_{0 \to n}$ and oscillator strengths $f_{osc}$.
   - State electric dipole moments and leading orbital excitation percentages.
+- **Tamm-Dancoff response (`:tdhf`, `:tddft` / `:tda`)**:
+  - `:tdhf` computes closed-shell RHF-based singlet and triplet TDA states; set `calc_triplets=false` to omit triplets.
+  - `:tddft` and `:tda` compute restricted DFT singlet TDA states for LDA, PBE, PBE0, BLYP, and B3LYP. For example:
+
+    ```julia
+    result = calculate(mol, :tddft; functional=:b3lyp, n_states=6)
+    result.raw_result.singlets[1].excitation_energy_ev
+    result.raw_result.singlets[1].oscillator_strength
+    ```
+
+  - The current DFT response uses a numerical derivative of the package's local XC potential. GGA gradient response terms are not implemented, so this is an approximate local-kernel TDA, not production-grade full TDDFT. DFT triplet response, open-shell TDHF/TDDFT, and analytic excited-state gradients are not available.
+  - Existing `:cis` remains the semi-empirical CNDO/2 CIS path. MM has classical molecular dynamics, not electronic TD response; MP2/CI/CC excited-state response and CIS for other semi-empirical models are not implemented.
+  - The reference SCF honors `device`; the new RHF/DFT TDA matrix construction currently runs on CPU.
 - **Excited State PES Gradients & Optimization**:
   - Analytical and finite-difference gradients on excited state potential energy surfaces.
   - Excited state geometry optimization to locate fluorescence emission minima and calculate Stokes shifts.
@@ -89,13 +111,40 @@ Run a calculation as usual (for example, `calculate(mol, :b3lyp; device=CPUDevic
 
 ### 📊 Advanced Spectroscopy (`src/analysis/spectra.jl`)
 - **UV-Vis Electronic Absorption Spectroscopy**:
-  - Simulates continuous absorption curves $\epsilon(\lambda)$ with Gaussian line broadening.
-  - Identifies $\lambda_{\max}$ and peak molar extinction coefficients.
+  - `calc_uv_vis(mol, :cndo2)` uses the existing CNDO/2 CIS model; `:hf`/`:tdhf` uses RHF TDA-TDHF; `:b3lyp`, `:pbe`, `:pbe0`, `:lda`, and `:blyp` use the restricted DFT TDA response.
+  - `generate_uv_vis_spectrum(transitions)` generates a Gaussian-broadened spectrum from computed singlet oscillator strengths.
+  - Other semi-empirical methods do not yet have a dedicated excited-state response model and are rejected rather than routed through an unrelated approximation.
+
+  ```julia
+  transitions = calc_uv_vis(mol, :b3lyp; basis="sto-3g", n_states=6)
+  wavelengths_nm, relative_absorbance =
+      generate_uv_vis_spectrum(transitions; lambda_min=150.0, lambda_max=400.0)
+  ```
 - **Vibrational / Infrared (IR) Spectroscopy**:
-  - Full numerical Cartesian Hessian matrix evaluation.
+  - MM force-field vibrations remain available through `calc_vibrational_frequencies(mol, ff)`.
+  - Semi-empirical, HF/UHF, and restricted DFT vibrations are available through `calc_vibrational_frequencies(mol, :method; ...)`. The QM Hessian uses finite differences of total energies; IR intensities use finite differences of dipoles assembled from Mulliken charges.
   - **Eckart Frame Projection**: Eliminates trivial translational and rotational degrees of freedom.
-  - Infrared absorption intensities ($I_k$ in km/mol) from normal mode dipole moment derivatives.
   - Simulates continuous IR transmittance/absorbance spectra with Lorentzian peak broadening.
+- **Raman Spectroscopy**:
+  - `calc_raman_modes(mol, ff)` uses MM normal modes; `calc_raman_modes(mol, :method; ...)` uses semi-empirical/HF/DFT normal modes.
+  - `generate_raman_spectrum(modes; laser_wavelength_nm=532.0)` produces a broadened Stokes spectrum with thermal population and scattered-frequency weighting.
+  - QM-method Raman activities use a finite-difference derivative of an approximate independent-particle sum-over-states polarizability. Transition dipoles use an AO midpoint approximation; DFT XC response kernels and self-consistent finite-field response are not included, so these are exploratory estimates rather than production-quality Raman predictions. MM-method Raman activities continue to use the empirical bond-polarizability model.
+
+  ```julia
+  ir_modes = calc_vibrational_frequencies(mol, :b3lyp; basis="sto-3g")
+  wavenumbers_cm1, ir_intensity = generate_ir_spectrum(ir_modes)
+
+  # Raman modes from QM-level Hessian and approximate electronic response
+  raman_modes = calc_raman_modes(mol, :b3lyp; basis="sto-3g")
+  shifts_cm1, raman_intensity = generate_raman_spectrum(
+      raman_modes; laser_wavelength_nm=532.0, temperature_k=298.15)
+
+  # MM-only variant
+  modes = calc_raman_modes(mol, parameterize_uff(mol))
+  shifts_cm1, intensity = generate_raman_spectrum(
+      modes; laser_wavelength_nm=532.0, temperature_k=298.15)
+  ```
+- QM harmonic Hessians require roughly `1 + 2(3N)^2` single-point energies for `N` atoms. IR and Raman intensities require additional displaced single points and can be expensive. `delta`, `ir_delta`, and `raman_delta` are in Angstrom.
 - **RRHO Thermochemistry**:
   - Zero-Point Vibrational Energy (ZPVE), thermal internal energy $U(T)$, enthalpy $H(T)$, entropy $S(T)$, and Gibbs free energy $G(T)$.
 
@@ -164,12 +213,43 @@ result.solvation                   # full SolvationResult (nothing when solvent=
 - **Tight-Binding**: **GFN0-xTB**, **GFN1-xTB / SCC-DFTB**, and **GFN2-xTB**.
 - **Grimme D3 / D3(BJ)**: Analytical dispersion corrections.
 
+### 🌐 Periodic Solid-State Prototype (`src/periodic/tight_binding.jl`)
+- A simple periodic Bloch tight-binding model for small 3D crystals and 2D lattices, with one orbital per atom and user-defined onsite/hopping parameters.
+- Computes sampled band energies, Gaussian-broadened density of states, a spin-degenerate filling-based Fermi level and band gap, and band structures along fractional reciprocal-space paths.
+- This is an exploratory model, not periodic HF/DFT, self-consistent DFTB/xTB, or a validated parameter set for general materials. Total energies are model band sums per cell and do not include an ion-ion repulsion term. Geometry optimization, phonons, forces, and self-consistent charge transfer are not included.
+
+  ```julia
+  crystal = CrystalStructure(
+      [2.46 1.23 0.0; 0.0 2.13 0.0; 0.0 0.0 20.0],
+      [0.0 1/3; 0.0 1/3; 0.0 0.0],
+      [:C, :C]; name="Graphene", periodic_dimensions=[1, 2])
+
+  result = solve_periodic_tb(crystal; electrons_per_cell=2,
+                             kmesh=(12, 12, 1), hopping_ev=-2.7,
+                             cutoff_angstrom=1.6)
+  bands = periodic_band_structure(
+      crystal, [[0.0, 0.0, 0.0], [1/3, 1/3, 0.0], [0.5, 0.0, 0.0]];
+      labels=["Γ", "K", "M"], hopping_ev=-2.7,
+      cutoff_angstrom=1.6)
+  ```
+
 ---
 
 ### 🔬 Molecular Mechanics Force Fields (`src/molecular_mechanics/`)
 - **Class I**: **UFF** (Z=1..103), **AMBER/GAFF**, **OPLS-AA**, **CHARMM** (Urey-Bradley).
 - **Class II**: **MM2 / MM3** (Allinger) with anharmonic stretches, sextic bends, and stretch-bend cross terms.
 - **Hybrid QM/MM**: Mechanical and electrostatic embedding with link-atom capping.
+
+### 📐 Geometry Optimization (`src/optimization/`)
+- Steepest descent, conjugate gradient, and L-BFGS are available for MM force fields.
+- Semi-empirical methods, RHF/UHF, and restricted DFT can be optimized through `optimize_geometry!(mol, method; ...)`, for example:
+
+  ```julia
+  result = optimize_geometry!(mol, :b3lyp; basis="sto-3g",
+                              optimization_method=:lbfgs)
+  ```
+
+- Electronic-structure gradients currently use central finite differences of total energy (including the requested solvation correction). This requires approximately `6N` single-point calculations per gradient for `N` atoms and can be expensive. The step defaults to `0.001 Å`; `grad_tol` is in Hartree/Å. Pass `device` to select the device used by each single-point SCF calculation. Analytic HF/DFT gradients are not yet implemented.
 
 ---
 
