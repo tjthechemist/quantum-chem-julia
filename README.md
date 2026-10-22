@@ -355,8 +355,14 @@ write_output("benzene.result", raw_result; title="Benzene Hückel Results")
 
 `format_output(result)` returns a plain-text string. `write_output(filename,
 result)` writes that report to the exact filename, with any extension (for
-example `.txt`, `.out`, or `.log`). Large matrices and tensors are represented
-by their dimensions so reports remain readable.
+example `.txt`, `.out`, or `.log`). Hückel results use a readable report with
+orbital energies/occupations, pi charges, and sorted bond orders; large matrices
+and tensors from other methods are represented by their dimensions so reports
+remain readable.
+
+Examples 01–15 write a plain-text `.out` report for their calculation results
+in the current working directory. Each example uses its own filename; running
+it again replaces that example's prior report.
 
 ---
 

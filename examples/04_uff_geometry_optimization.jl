@@ -45,3 +45,7 @@ ec_final, _ = evaluate_mm(uff_ff, mol; calc_grad=false)
 println("\n--- Optimized Energy Breakdown ---")
 print_summary(ec_final)
 
+write_output("example_04_uff_optimization.out",
+             (initial_energy=ec_init, optimization=opt_res,
+              final_energy=ec_final);
+             title="Ethane UFF Geometry Optimization")

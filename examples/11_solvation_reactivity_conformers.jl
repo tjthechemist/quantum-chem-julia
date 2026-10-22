@@ -36,8 +36,9 @@ print_reactivity_summary(react_indices, fukui, mol)
 # 3. Solvation Free Energy in Various Solvents
 println("\n3. Solvation Free Energy (ΔG_solv) via COSMO/Generalized Born:")
 println("  Solvent          Dielectric (ε)   ΔG_solv (kcal/mol)   SASA (Å²)")
-for s_name in [:water, :ethanol, :chloroform, :hexane]
-    solv_res = calc_solvation_energy(mol, s_name)
+solvation_results = [calc_solvation_energy(mol, s_name)
+                     for s_name in [:water, :ethanol, :chloroform, :hexane]]
+for solv_res in solvation_results
     @printf("  %-15s     %6.2f          %8.3f        %7.2f\n",
             solv_res.solvent_name, solv_res.dielectric,
             solv_res.total_delta_g_solv_kcal, solv_res.total_sasa_ang2)
@@ -48,3 +49,8 @@ println("\n4. Conformational Search around C-C Single Bond:")
 ensemble = search_conformers(mol, parameterize_uff; n_conformations=8, temp_k=298.15)
 print_conformer_summary(ensemble)
 
+write_output("example_11_reactivity_solvation.out",
+             (ground_state=scf_res, reactivity=react_indices,
+              fukui=fukui, solvation=solvation_results,
+              conformers=ensemble);
+             title="Acrolein Reactivity and Solvation Results")

@@ -42,3 +42,6 @@ qmmm_elec = create_qmmm_system(mol, qm_atoms; embedding=:electrostatic)
 res_elec = evaluate_qmmm(qmmm_elec, NDDOMethod(:am1))
 print_qmmm_summary(res_elec)
 
+write_output("example_07_qmmm.out",
+             (mechanical_embedding=res_mech, electrostatic_embedding=res_elec);
+             title="Acetone-Water QM/MM Results")

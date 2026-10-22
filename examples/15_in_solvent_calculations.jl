@@ -32,9 +32,9 @@ println("-" ^ 65)
 
 solvents = [:water, :dmso, :acetonitrile, :methanol, :ethanol,
             :chloroform, :dichloromethane, :toluene, :hexane]
+solvation_results = [calc_solvation_energy(mol, sym) for sym in solvents]
 
-for sym in solvents
-    sv = calc_solvation_energy(mol, sym)
+for sv in solvation_results
     @printf("  %-22s  %8.2f  %10.4f  %10.4f\n",
             sv.solvent_name, sv.dielectric,
             sv.electrostatic_solv_kcal, sv.total_delta_g_solv_kcal)
@@ -58,9 +58,11 @@ println()
 # 3. Semi-Empirical methods in solvent
 # ==============================================================================
 println("── Semi-Empirical Methods ────────────────────────────────────────────")
+semi_empirical_results = []
 for method in [:cndo2, :am1, :pm3]
     res_vac = calculate(mol, method; solvent=:vacuum)
     res_aq  = calculate(mol, method; solvent=:water)
+    push!(semi_empirical_results, (method=method, vacuum=res_vac, water=res_aq))
     @printf("  %-8s  gas: %10.4f eV  |  water: %10.4f eV  (ΔG_solv = %+.4f kcal/mol)\n",
             uppercase(string(method)),
             res_vac.total_energy_ev,
@@ -94,9 +96,11 @@ println()
 # 5. DFT in solvent
 # ==============================================================================
 println("── Density Functional Theory (B3LYP / STO-3G) ───────────────────────")
+dft_results = []
 for func in [:lda, :pbe, :b3lyp]
     res_vac = calculate(mol, func; basis="sto-3g", solvent=:vacuum)
     res_aq  = calculate(mol, func; basis="sto-3g", solvent=:water)
+    push!(dft_results, (functional=func, vacuum=res_vac, water=res_aq))
     @printf("  %-8s  gas: %10.6f Ha  |  water: %10.6f Ha  (ΔG_solv = %+.4f kcal/mol)\n",
             uppercase(string(func)),
             res_vac.total_energy_hartree,
@@ -109,9 +113,11 @@ println()
 # 6. Post-HF methods in solvent
 # ==============================================================================
 println("── Post-Ab Initio Methods (STO-3G) ───────────────────────────────────")
+post_hf_results = []
 for method in [:mp2, :cisd, :ccsd]
     res_vac = calculate(mol, method; basis="sto-3g", solvent=:vacuum)
     res_aq  = calculate(mol, method; basis="sto-3g", solvent=:water)
+    push!(post_hf_results, (method=method, vacuum=res_vac, water=res_aq))
     @printf("  %-8s  gas: %10.6f Ha  |  water: %10.6f Ha  (ΔG_solv = %+.4f kcal/mol)\n",
             uppercase(string(method)),
             res_vac.total_energy_hartree,
@@ -145,3 +151,13 @@ println("\nDone! For all methods the solvated total energy is in:")
 println("  result.total_energy_solv_hartree  /  .total_energy_solv_ev  /  .total_energy_solv_kcal")
 println("Gas-phase energies are always preserved in result.total_energy_* fields.")
 
+write_output("example_15_in_solvent.out",
+             (standalone_solvation=solvation_results,
+              molecular_mechanics=(vacuum=res_mm_vac, water=res_mm_aq),
+              semi_empirical=semi_empirical_results,
+              hartree_fock=(vacuum=res_hf_vac, water=res_hf_aq,
+                            dmso=res_hf_dmso, chloroform=res_hf_chl),
+              dft=dft_results, post_hf=post_hf_results,
+              nmr=(vacuum=res_nmr_vac, water=res_nmr_aq),
+              detailed_solvation=res_hf_aq.solvation);
+             title="Formaldehyde In-Solvent Calculation Results")

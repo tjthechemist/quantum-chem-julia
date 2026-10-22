@@ -240,6 +240,13 @@ H    1.2405   -2.1486    0.0000
         @test isapprox(res.delocalization_energy_beta, 2.0, atol=1e-2)
         unified_res = calculate(mol, :huckel)
         @test unified_res.orbital_energies_ev ≈ res.orbital_energies_ev
+        report = format_output(res; title="Benzene Hückel Results")
+        @test startswith(report, "Benzene Hückel Results\n")
+        @test occursin("Total pi energy:", report)
+        @test occursin("Delocalization energy:", report)
+        @test occursin("MO # 1", report)
+        @test occursin("Coulson Pi Bond Orders", report)
+        @test !occursin("coefficients:", report)
     end
 
     @testset "7. CNDO/2 and AM1 / PM3 NDDO SCF" begin

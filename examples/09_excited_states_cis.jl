@@ -44,3 +44,10 @@ peak_idx = argmax(absorbance)
 println("Maximum UV-Vis Absorption Peak (λ_max): ", round(wavelengths[peak_idx], digits=2), " nm")
 println("Peak Molar Absorptivity ε: ", round(absorbance[peak_idx], digits=1), " L/(mol·cm)")
 
+write_output("example_09_excited_states.out",
+             (ground_state=scf_res, cis=cis_res,
+              uv_vis_wavelengths_nm=wavelengths,
+              uv_vis_absorbance=absorbance,
+              maximum_peak_nm=wavelengths[peak_idx],
+              peak_absorptivity=absorbance[peak_idx]);
+             title="Formaldehyde Excited-State and UV-Vis Results")

@@ -35,3 +35,5 @@ for ((a, b), pop) in eht_res.overlap_populations
     println("  Atoms ($a - $b): ", round(pop, digits=4))
 end
 
+write_output("example_02_extended_huckel.out", eht_res;
+             title="Water Extended Hückel Results")

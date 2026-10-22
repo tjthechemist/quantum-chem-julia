@@ -48,3 +48,6 @@ println("Forward Barrier (TS -> Reactant): ", round(irc_res.barrier_forward_kcal
 println("Reverse Barrier (TS -> Product):  ", round(irc_res.barrier_reverse_kcal, digits=3), " kcal/mol")
 println("IRC successfully confirmed connection between reactant, TS, and product!")
 
+write_output("example_10_transition_state.out",
+             (neb=res_neb, irc=irc_res);
+             title="Hydrogen Peroxide NEB and IRC Results")

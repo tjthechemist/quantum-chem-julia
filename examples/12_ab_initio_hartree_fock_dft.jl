@@ -32,9 +32,15 @@ print_dft_summary(pbe_res)
 
 # 4. Unified Entry Point calculate()
 println("\n=== 4. Testing Unified calculate() Interface ===")
+unified_results = []
 for m in [:hf, :b3lyp, :pbe, :am1, :uff]
     c_res = calculate(mol, m; basis="sto-3g")
+    push!(unified_results, c_res)
     @printf("  Method: %-8s | Energy: %14.6f a.u. (%12.4f eV | %12.2f kcal/mol)\n",
             string(c_res.method), c_res.total_energy_hartree, c_res.total_energy_ev, c_res.total_energy_kcal)
 end
 
+write_output("example_12_hf_dft.out",
+             (hartree_fock=hf_res, b3lyp=b3lyp_res, pbe=pbe_res,
+              unified_calculations=unified_results);
+             title="Water Hartree-Fock and DFT Results")

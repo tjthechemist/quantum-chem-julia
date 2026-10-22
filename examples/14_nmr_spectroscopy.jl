@@ -85,3 +85,9 @@ res_unified = calculate(mol, :nmr; device=active_dev)
 println("\nUnified NMR Calculation completed successfully!")
 println("====================================================================")
 
+write_output("example_14_nmr_spectroscopy.out",
+             (ground_state=scf_res, nmr=nmr_res,
+              proton_spectrum=(ppm=ppm_h, intensity=spec_h),
+              carbon_spectrum=(ppm=ppm_c, intensity=spec_c),
+              unified_result=res_unified);
+             title="Ethanol NMR Results")

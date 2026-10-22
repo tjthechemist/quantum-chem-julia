@@ -36,3 +36,7 @@ println("\n=== 2. Standalone Grimme D3(BJ) Dispersion ===")
 d3_kcal, d3_grad = calc_d3_dispersion(mol)
 println("Dispersion Energy: ", round(d3_kcal, digits=6), " kcal/mol")
 
+write_output("example_06_tight_binding.out",
+             (gfn2_xtb=tb_res, d3_energy_kcal=d3_kcal,
+              d3_gradient=d3_grad);
+             title="Methane Tight-Binding Results")

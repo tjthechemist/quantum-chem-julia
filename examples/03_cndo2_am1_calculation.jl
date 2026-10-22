@@ -46,3 +46,6 @@ pm3_res = solve_nddo(mol, NDDOMethod(:pm3); options=opt)
 println("Total Energy (PM3):      ", round(pm3_res.total_energy_ev, digits=5), " eV")
 println("Heat of Formation (PM3): ", round(pm3_res.heat_of_formation_kcal, digits=3), " kcal/mol")
 
+write_output("example_03_semi_empirical.out",
+             (cndo2=cndo_res, am1=am1_res, pm3=pm3_res);
+             title="Formaldehyde Semi-Empirical Results")

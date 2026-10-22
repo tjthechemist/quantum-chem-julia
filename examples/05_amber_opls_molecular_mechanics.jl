@@ -39,3 +39,6 @@ mm3_ff = parameterize_mm3(mol)
 ec_mm3, _ = evaluate_mm(mm3_ff, mol)
 print_summary(ec_mm3)
 
+write_output("example_05_force_field_comparison.out",
+             (amber=ec_amber, opls=ec_opls, charmm=ec_charmm, mm3=ec_mm3);
+             title="Ethanol Force-Field Comparison")

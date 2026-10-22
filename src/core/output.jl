@@ -1,6 +1,7 @@
 module ResultOutput
 
 using Printf
+using ..HuckelTheory: HuckelResult
 
 export format_output, write_output
 
@@ -77,6 +78,42 @@ function _write_orbital_energies(io::IO, energies)
     end
 end
 
+function _format_huckel_result(result::HuckelResult, title::AbstractString)
+    io = IOBuffer()
+    println(io, title)
+    println(io, repeat("=", length(title)))
+    println(io, "Result type: ", typeof(result))
+    println(io, "Pi-active atoms: ", join(result.pi_atom_indices, ", "))
+    @printf(io, "Total pi energy: %.4f beta (%.6f eV)\n",
+            result.total_pi_energy_beta, result.total_pi_energy_ev)
+    @printf(io, "Delocalization energy: %.4f beta (%.6f eV)\n",
+            result.delocalization_energy_beta, result.delocalization_energy_ev)
+
+    println(io, "\nOrbital Energies and Occupations")
+    println(io, "  MO       m (beta)       Energy (eV)    Occupation")
+    for index in eachindex(result.orbital_energies_m)
+        @printf(io, "  MO #%2d   %10.4f   %13.6f   %10.1f\n",
+                index, result.orbital_energies_m[index],
+                result.orbital_energies_ev[index], result.occupations[index])
+    end
+
+    println(io, "\nPi Charges")
+    println(io, "  Atom       Charge")
+    for (atom, charge) in zip(result.pi_atom_indices, result.pi_charges)
+        @printf(io, "  %4d   %12.6f\n", atom, charge)
+    end
+
+    println(io, "\nCoulson Pi Bond Orders")
+    println(io, "  Bond       Pi order     Total bond order")
+    for ((atom_i, atom_j), bond_order) in sort!(collect(result.bond_orders);
+                                                by=first)
+        @printf(io, "  %2d - %-2d   %10.6f   %16.6f\n",
+                atom_i, atom_j, bond_order, 1.0 + bond_order)
+    end
+
+    return String(take!(io))
+end
+
 """
     format_output(result; title=nothing) -> String
 
@@ -85,9 +122,12 @@ struct. Large arrays are represented by their type and dimensions to keep
 reports readable, except molecular orbital energies, which are listed in eV.
 """
 function format_output(result; title::Union{Nothing, AbstractString}=nothing)::String
+    report_title = something(title, "QuantumChemMM Calculation Report")
+    result isa HuckelResult && return _format_huckel_result(result, report_title)
+
     io = IOBuffer()
-    println(io, something(title, "QuantumChemMM Calculation Report"))
-    println(io, repeat("=", length(something(title, "QuantumChemMM Calculation Report"))))
+    println(io, report_title)
+    println(io, repeat("=", length(report_title)))
     println(io, "Result type: ", typeof(result))
 
     if isstructtype(typeof(result))

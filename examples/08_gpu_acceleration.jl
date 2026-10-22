@@ -120,3 +120,11 @@ println("\n===================================================================="
 println("  All QuantumChemMM.jl engines are fully GPU-accelerated across     ")
 println("  NVIDIA (CUDA), AMD (ROCm), and Intel (oneAPI) architectures!     ")
 println("====================================================================")
+
+write_output("example_08_gpu_acceleration.out",
+             (available_devices=available_devices, device=active_dev,
+              uff=ec_dev, cndo2=cndo_res, hartree_fock=hf_res,
+              b3lyp=dft_res, mp2=mp2_res, ccsd=ccsd_res, cis=cis_res,
+              unified_hf=res_unified_hf, unified_b3lyp=res_unified_dft,
+              unified_mp2=res_unified_mp2);
+             title="GPU Acceleration Example Results")

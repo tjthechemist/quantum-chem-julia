@@ -39,3 +39,7 @@ println(" Method       Total Energy (a.u.)  E_corr (kcal/mol)")
 @printf(" CCSD         %16.8f       %8.3f\n", cc_res.total_ccsd_energy_hartree, cc_res.ccsd_correlation_hartree * 627.509)
 @printf(" CCSD(T)      %16.8f       %8.3f\n", cc_res.total_ccsdt_energy_hartree, (cc_res.ccsd_correlation_hartree + cc_res.triples_correction_hartree) * 627.509)
 
+write_output("example_13_post_hf.out",
+             (hartree_fock=hf_res, mp2=mp2_res, cisd=cisd_res,
+              coupled_cluster=cc_res);
+             title="Hydrogen Post-Hartree-Fock Results")
