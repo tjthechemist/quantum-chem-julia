@@ -10,6 +10,7 @@ using Printf
 using ..Types
 using ..Elements
 using ..SemiEmpiricalBase
+using ..NDDOSCF
 using ..SlaterOrbitals
 
 export ReactivityIndices, FukuiIndices, calc_reactivity_indices,
@@ -36,11 +37,13 @@ struct FukuiIndices
 end
 
 """
-    calc_reactivity_indices(scf_res::SCFResult, mol::Molecule)::ReactivityIndices
+    calc_reactivity_indices(scf_res::Union{SCFResult, NDDOResult},
+                            mol::Molecule)::ReactivityIndices
 Computes global Parr-Pearson conceptual DFT reactivity indices from HOMO/LUMO energies.
 """
-function calc_reactivity_indices(scf_res::SCFResult, mol::Molecule)::ReactivityIndices
-    eps = scf_res.mo_energies
+function calc_reactivity_indices(scf_res::Union{SCFResult, NDDOResult},
+                                 mol::Molecule)::ReactivityIndices
+    eps = scf_res isa NDDOResult ? scf_res.mo_energies_ev : scf_res.mo_energies
     nb = length(eps)
     total_val = sum(Elements.valence_electrons(at.symbol) for at in mol.atoms) - mol.total_charge
     n_occ = div(total_val, 2)
@@ -64,11 +67,13 @@ function calc_reactivity_indices(scf_res::SCFResult, mol::Molecule)::ReactivityI
 end
 
 """
-    calc_condensed_fukui(scf_res::SCFResult, mol::Molecule)::FukuiIndices
+    calc_condensed_fukui(scf_res::Union{SCFResult, NDDOResult},
+                         mol::Molecule)::FukuiIndices
 Computes condensed Fukui functions f+, f-, f0 and the Dual Descriptor (Δf)
 to identify reactive centers for electrophilic, nucleophilic, and radical attacks.
 """
-function calc_condensed_fukui(scf_res::SCFResult, mol::Molecule)::FukuiIndices
+function calc_condensed_fukui(scf_res::Union{SCFResult, NDDOResult},
+                              mol::Molecule)::FukuiIndices
     C = scf_res.mo_coefficients
     nb = size(C, 1)
     nat = n_atoms(mol)
@@ -130,4 +135,3 @@ function print_reactivity_summary(indices::ReactivityIndices, fukui::FukuiIndice
 end
 
 end # module ReactivityDescriptors
-

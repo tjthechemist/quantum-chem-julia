@@ -294,7 +294,8 @@ scf_res = solve_cndo2(mol)
 
 # Solve CIS excited states with GPU acceleration
 cis_res = solve_cis(scf_res, mol; n_states=5, calc_triplets=true, device=CUDADevice())
-wavelengths, absorbance = generate_uv_vis_spectrum(cis_res.singlets; lambda_min=150.0, lambda_max=400.0)
+singlet_transitions = uv_vis_transitions(cis_res)
+wavelengths, absorbance = generate_uv_vis_spectrum(singlet_transitions; lambda_min=50.0, lambda_max=400.0)
 ```
 
 ### 4. In-Solvent Calculations for All Methods
@@ -363,6 +364,11 @@ remain readable.
 Examples 01–15 write a plain-text `.out` report for their calculation results
 in the current working directory. Each example uses its own filename; running
 it again replaces that example's prior report.
+Run an example from the repository root:
+
+```sh
+julia examples/01_huckel_benzene.jl
+```
 
 ---
 

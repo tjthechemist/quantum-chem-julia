@@ -104,49 +104,42 @@ function calc_improper_energy_and_grad(param::HarmonicImproper, rc::AbstractVect
     energy = 0.5 * param.k_imp * domega^2
     dE_domega = param.k_imp * domega
 
-    # Numerical finite difference for out-of-plane gradients to guarantee robust geometric stability
+    gradients = _improper_angle_gradients(rc, ri, rj, rk, dE_domega)
+    return energy, gradients...
+end
+
+function calc_improper_energy_and_grad(param::CosineImproper, rc::AbstractVector{<:Real},
+                                       ri::AbstractVector{<:Real}, rj::AbstractVector{<:Real},
+                                       rk::AbstractVector{<:Real})
+    omega = MolMath.out_of_plane_angle(rc, ri, rj, rk)
+    energy = param.k_inv * (param.c0 + param.c1 * cos(omega) +
+                            param.c2 * cos(2.0 * omega))
+    dE_domega = param.k_inv * (-param.c1 * sin(omega) -
+                               2.0 * param.c2 * sin(2.0 * omega))
+
+    gradients = _improper_angle_gradients(rc, ri, rj, rk, dE_domega)
+    return energy, gradients...
+end
+
+function _improper_angle_gradients(rc::AbstractVector{<:Real},
+                                   ri::AbstractVector{<:Real},
+                                   rj::AbstractVector{<:Real},
+                                   rk::AbstractVector{<:Real},
+                                   dE_domega::Real)
     delta = 1e-6
-    g_c = zeros(3)
-    g_i = zeros(3)
-    g_j = zeros(3)
-    g_k = zeros(3)
+    coords = [Float64.(rc), Float64.(ri), Float64.(rj), Float64.(rk)]
+    gradients = [zeros(3) for _ in 1:4]
 
-    for coord in 1:3
-        # central atom
-        rc[coord] += delta
-        w_plus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        rc[coord] -= 2*delta
-        w_minus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        rc[coord] += delta
-        g_c[coord] = dE_domega * (w_plus - w_minus) / (2*delta)
-
-        # atom i
-        ri[coord] += delta
-        w_plus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        ri[coord] -= 2*delta
-        w_minus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        ri[coord] += delta
-        g_i[coord] = dE_domega * (w_plus - w_minus) / (2*delta)
-
-        # atom j
-        rj[coord] += delta
-        w_plus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        rj[coord] -= 2*delta
-        w_minus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        rj[coord] += delta
-        g_j[coord] = dE_domega * (w_plus - w_minus) / (2*delta)
-
-        # atom k
-        rk[coord] += delta
-        w_plus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        rk[coord] -= 2*delta
-        w_minus = MolMath.out_of_plane_angle(rc, ri, rj, rk)
-        rk[coord] += delta
-        g_k[coord] = dE_domega * (w_plus - w_minus) / (2*delta)
+    for atom in eachindex(coords), coord in eachindex(coords[atom])
+        coords[atom][coord] += delta
+        w_plus = MolMath.out_of_plane_angle(coords...)
+        coords[atom][coord] -= 2 * delta
+        w_minus = MolMath.out_of_plane_angle(coords...)
+        coords[atom][coord] += delta
+        gradients[atom][coord] = dE_domega * (w_plus - w_minus) / (2 * delta)
     end
 
-    return energy, g_c, g_i, g_j, g_k
+    return gradients
 end
 
 end # module Dihedrals
-

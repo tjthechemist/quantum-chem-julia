@@ -30,6 +30,6 @@ model = HuckelModel(alpha0_ev=-11.26, beta0_ev=-2.70)
 result = solve_huckel(mol, model)
 
 report_title = "Benzene Hückel Results"
-report = format_output(result; title=report_title)
-write_output("benzene_huckel.out", result; title=report_title)
+report = QuantumChemMM.format_output(result; title=report_title)
+QuantumChemMM.write_output("benzene_huckel.out", result; title=report_title)
 println(report)

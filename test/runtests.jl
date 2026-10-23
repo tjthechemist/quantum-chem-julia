@@ -88,6 +88,20 @@ H  2.0300  0.0000 -1.0000
 
         mm3_ff = parameterize_mm3(mol)
         @test isfinite(total_energy(evaluate_mm(mm3_ff, mol)[1]))
+
+        formaldehyde_xyz = """4
+Formaldehyde
+C    0.000000    0.000000   -0.597000
+O    0.000000    0.000000    0.607000
+H    0.000000    0.938000   -1.181000
+H    0.000000   -0.938000   -1.181000
+"""
+        formaldehyde = parse_xyz(formaldehyde_xyz; name="Formaldehyde UFF")
+        uff_formaldehyde = parameterize_uff(formaldehyde)
+        @test !isempty(uff_formaldehyde.impropers)
+        improper_ec, improper_grad = evaluate_mm(uff_formaldehyde, formaldehyde)
+        @test isfinite(improper_ec.e_improper)
+        @test all(isfinite, improper_grad)
     end
 
     @testset "5. Geometry Optimization (L-BFGS)" begin
@@ -213,6 +227,18 @@ H  0.0  0.0  0.7414
             @test length(wavelength) == 80
             @test all(isfinite, intensity)
         end
+
+        state = ExcitedState(1, :singlet, 3.0, 3.0, 413.28, 0.5,
+                             zeros(3), Tuple{Int, Int, Float64, String}[])
+        cis_result = CISResult(0.0, [state], ExcitedState[], Float64[], 0, 0)
+        singlet_transitions = uv_vis_transitions(cis_result)
+        @test length(singlet_transitions) == 1
+        @test singlet_transitions[1].oscillator_strength == state.oscillator_strength
+        wavelengths, absorbance =
+            generate_uv_vis_spectrum(singlet_transitions; n_points=80)
+        @test length(wavelengths) == 80
+        @test all(isfinite, absorbance)
+
         @test_throws ArgumentError calc_uv_vis(mol, :am1)
         @test_throws ArgumentError calc_uv_vis(mol, :hf; n_states=0)
     end
@@ -264,6 +290,10 @@ H    0.000000   -0.938000   -1.181000
 
         am1_res = solve_nddo(mol, NDDOMethod(:am1); options=SCFOptions(max_cycles=30))
         @test isfinite(am1_res.total_energy_ev)
+        reactivity = calc_reactivity_indices(am1_res, mol)
+        fukui = calc_condensed_fukui(am1_res, mol)
+        @test isfinite(reactivity.homo_lumo_gap_ev)
+        @test all(isfinite, fukui.dual_descriptor)
     end
 
     @testset "7b. Periodic tight-binding bands and DOS" begin

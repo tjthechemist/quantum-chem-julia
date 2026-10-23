@@ -39,7 +39,8 @@ for st in cis_res.triplets
 end
 
 println("\n3. Generating Simulated Continuous UV-Vis Spectrum Curve...")
-wavelengths, absorbance = generate_uv_vis_spectrum(cis_res.singlets; lambda_min=150.0, lambda_max=400.0, fwhm_nm=15.0)
+singlet_transitions = uv_vis_transitions(cis_res)
+wavelengths, absorbance = generate_uv_vis_spectrum(singlet_transitions; lambda_min=50.0, lambda_max=400.0, fwhm_nm=15.0)
 peak_idx = argmax(absorbance)
 println("Maximum UV-Vis Absorption Peak (λ_max): ", round(wavelengths[peak_idx], digits=2), " nm")
 println("Peak Molar Absorptivity ε: ", round(absorbance[peak_idx], digits=1), " L/(mol·cm)")

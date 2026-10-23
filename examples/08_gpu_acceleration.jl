@@ -30,21 +30,13 @@ H   0.000000   -0.757200   -0.469200
 mol = parse_xyz(water_xyz; name="Water")
 println("\nMolecule: $(mol.name) with $(n_atoms(mol)) atoms.")
 
-# 3. Multi-Vendor GPU Device Instances
-# Users can instantiate any of the hardware targets:
-dev_cpu   = CPUDevice()     # Host CPU multithreaded SIMD
-dev_cuda  = CUDADevice(0)   # NVIDIA CUDA GPU (Device #0)
-dev_rocm  = ROCmDevice(0)   # AMD ROCm / ROCArray GPU (Device #0)
-dev_intel = OneAPIDevice(0) # Intel oneAPI / oneArray GPU (Device #0)
-
-println("\n[2] Target GPU Architectures Available for Offloading:")
-println("  - NVIDIA CUDA:  $(device_name(dev_cuda))")
-println("  - AMD ROCm:     $(device_name(dev_rocm))")
-println("  - Intel oneAPI: $(device_name(dev_intel))")
-
-# Select active device (defaulting to CPU if no discrete GPU driver is loaded in session)
+# 3. Select an actually available device. Optional GPU backends must be loaded
+# by the Julia session before detect_available_devices() can report them.
+dev_cpu = CPUDevice()
 active_dev = length(available_devices) > 1 ? available_devices[2] : dev_cpu
 println("\nCurrently executing benchmarks with: $(device_name(active_dev))")
+is_gpu(active_dev) ||
+    println("No loaded GPU backend detected; GPU solver calls will use CPU fallback.")
 
 # 4. GPU-Accelerated Molecular Mechanics & MD
 println("\n--------------------------------------------------------------------")
@@ -108,17 +100,17 @@ end
 println("\n--------------------------------------------------------------------")
 println(" [G] Unified calculate() API with device= Keyword")
 println("--------------------------------------------------------------------")
-res_unified_hf  = calculate(mol, :hf; device=dev_cuda)
-res_unified_dft = calculate(mol, :b3lyp; device=dev_rocm)
-res_unified_mp2 = calculate(mol, :mp2; device=dev_intel)
+res_unified_hf  = calculate(mol, :hf; device=active_dev)
+res_unified_dft = calculate(mol, :b3lyp; device=active_dev)
+res_unified_mp2 = calculate(mol, :mp2; device=active_dev)
 
-@printf("  calculate(mol, :hf; device=CUDADevice())   -> %12.6f Hartree\n", res_unified_hf.total_energy_hartree)
-@printf("  calculate(mol, :b3lyp; device=ROCmDevice()) -> %12.6f Hartree\n", res_unified_dft.total_energy_hartree)
-@printf("  calculate(mol, :mp2; device=OneAPIDevice()) -> %12.6f Hartree\n", res_unified_mp2.total_energy_hartree)
+@printf("  calculate(mol, :hf; device=%s)   -> %12.6f Hartree\n", device_name(active_dev), res_unified_hf.total_energy_hartree)
+@printf("  calculate(mol, :b3lyp; device=%s) -> %12.6f Hartree\n", device_name(active_dev), res_unified_dft.total_energy_hartree)
+@printf("  calculate(mol, :mp2; device=%s) -> %12.6f Hartree\n", device_name(active_dev), res_unified_mp2.total_energy_hartree)
 
 println("\n====================================================================")
-println("  All QuantumChemMM.jl engines are fully GPU-accelerated across     ")
-println("  NVIDIA (CUDA), AMD (ROCm), and Intel (oneAPI) architectures!     ")
+println("  GPU acceleration is used when a supported backend is available.  ")
+println("  Otherwise, calculations run on the CPU fallback.                  ")
 println("====================================================================")
 
 write_output("example_08_gpu_acceleration.out",

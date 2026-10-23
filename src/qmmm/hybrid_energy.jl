@@ -82,14 +82,15 @@ function evaluate_qmmm(qmmm::QMMMSystem, qm_method::AbstractSemiEmpiricalMethod=
     e_inter = e_inter_vdw + e_inter_elec
 
     # 6. Total Energy: E_QMMM = E_QM(QM) + E_MM(Full) - E_MM(QM)
-    e_total_kcal = if qmmm.embedding == :mechanical
+    e_total_kcal = if qmmm.embedding_type == :mechanical
         e_qm_kcal + e_mm_full - e_mm_qm
     else
         # Electrostatic embedding with explicit QM/MM interaction
         e_qm_kcal + e_mm_full - e_mm_qm + e_inter
     end
 
-    return QMMMResult(e_total_kcal, e_qm_kcal, e_mm_full, e_mm_qm, e_inter, qmmm.embedding)
+    return QMMMResult(e_total_kcal, e_qm_kcal, e_mm_full, e_mm_qm, e_inter,
+                      qmmm.embedding_type)
 end
 
 function print_qmmm_summary(res::QMMMResult)
@@ -107,4 +108,3 @@ function print_qmmm_summary(res::QMMMResult)
 end
 
 end # module QMMMEnergy
-
